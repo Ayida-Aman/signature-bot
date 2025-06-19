@@ -1,0 +1,11 @@
+{
+  "nodeModulesDir": "auto",
+  "tasks": {
+    "start": "deno run --watch --allow-read --allow-env --allow-net --unstable-kv main.ts"
+  },
+  "imports": {
+    "telegram-bot-api": "npm:node-telegram-bot-api@0.66.0",
+    "@types/telegram-bot-api": "npm:@types/node-telegram-bot-api@0.64.7"
+  },
+  "unstable": ["kv"]
+}
