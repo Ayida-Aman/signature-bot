@@ -46,7 +46,7 @@ await loadSignatures();
 
 // Set webhook in production
 if (!IN_DEV_MODE) {
-  const WEBHOOK_URL = `https://<your-deno-project>.deno.dev${WEBHOOK_PATH}`;
+  const WEBHOOK_URL = `https://telegram-signature-bot.deno.dev${WEBHOOK_PATH}`;
   await bot.setWebHook(WEBHOOK_URL, { secret_token: WEBHOOK_SECRET_TOKEN });
   console.log(`Webhook set to ${WEBHOOK_URL}`);
 } else {
