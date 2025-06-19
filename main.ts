@@ -6,7 +6,7 @@ if (Deno.env.get("DENO_ENV") === "development") {
   const env = await load({ export: true });
   console.log("Loaded .env variables:", env);
 }
-// Environment
+
 const TELEGRAM_BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
 const WEBHOOK_SECRET_TOKEN = Deno.env.get("WEBHOOK_SECRET_TOKEN");
 const IN_DEV_MODE = Deno.env.get("DENO_ENV") === "development";
@@ -44,7 +44,6 @@ async function removeSignature(channelId: string) {
 
 await loadSignatures();
 
-// Set webhook in production
 if (!IN_DEV_MODE) {
   const WEBHOOK_URL = `https://telegram-signature-bot.deno.dev${WEBHOOK_PATH}`;
   await bot.setWebHook(WEBHOOK_URL, { secret_token: WEBHOOK_SECRET_TOKEN });
@@ -54,7 +53,6 @@ if (!IN_DEV_MODE) {
   console.log("Running in polling mode");
 }
 
-// Commands
 bot.onText(/\/start/, (msg) => {
   const chatId = msg.chat.id;
   const welcomeMessage = `👋 Welcome to SignatureBot!
@@ -66,9 +64,8 @@ Commands:
 /change_signature <signature> – Update it
 /remove_signature – Delete it
 
-Example: /set_signature @aydus_journey
-
-After setting, reply with your channel ID like 2431124237.`;
+Example: /set_signature @aydus_journal
+`;
   bot.sendMessage(chatId, welcomeMessage);
 });
 
@@ -77,7 +74,7 @@ bot.onText(/\/set_signature (.+)/, (msg, match) => {
   const signature = match?.[1];
   if (signature) {
     awaitingChannelId[userId] = { action: "set", signature };
-    bot.sendMessage(userId, "📌 Please provide your channel ID.");
+    bot.sendMessage(userId, "📌 Please provide your channel ID. example: 24315194535");
   }
 });
 
@@ -119,7 +116,6 @@ bot.on("message", async (msg) => {
   }
 });
 
-// Channel post handler
 bot.on("channel_post", async (msg) => {
   const chatId = msg.chat.id;
   const messageId = msg.message_id;
@@ -129,11 +125,11 @@ bot.on("channel_post", async (msg) => {
 
   try {
     if (msg.text && !msg.text.includes(signature)) {
-      const updatedText = `${msg.text}\n\n> ${signature}`;
+      const updatedText = `${msg.text}\n\n ${signature}`;
       await bot.editMessageText(updatedText, { chat_id: chatId, message_id: messageId });
       console.log(`Edited text ${messageId} in ${chatId}`);
     } else if (msg.caption && !msg.caption.includes(signature)) {
-      const updatedCaption = `${msg.caption}\n\n> ${signature}`;
+      const updatedCaption = `${msg.caption}\n\n ${signature}`;
       await bot.editMessageCaption(updatedCaption, {
   chat_id: chatId,
   message_id: messageId
@@ -147,10 +143,10 @@ bot.on("channel_post", async (msg) => {
     try {
       await bot.deleteMessage(chatId, messageId);
       if (msg.text) {
-        await bot.sendMessage(chatId, `${msg.text}\n\n> ${signature}`);
+        await bot.sendMessage(chatId, `${msg.text}\n\n ${signature}`);
       } else if (msg.caption && msg.photo) {
         await bot.sendPhoto(chatId, msg.photo.at(-1)!.file_id, {
-          caption: `${msg.caption}\n\n> ${signature}`,
+          caption: `${msg.caption}\n\n ${signature}`,
         });
       }
     } catch (fallbackError) {
@@ -162,7 +158,6 @@ bot.on("channel_post", async (msg) => {
   }
 });
 
-// Webhook server
 Deno.serve({ port: 8000 }, async (req) => {
   if (req.method === "POST" && new URL(req.url).pathname === WEBHOOK_PATH) {
     try {
