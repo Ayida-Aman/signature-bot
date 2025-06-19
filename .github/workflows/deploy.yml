@@ -21,4 +21,4 @@ jobs:
             TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}
             WEBHOOK_SECRET_TOKEN=${{ secrets.WEBHOOK_SECRET_TOKEN }}
             DENO_ENV=production
-            DENO_PROJECT_DOMAIN=<your-deno-project>.deno.dev
+            DENO_PROJECT_DOMAIN=telegram-signature-bot.deno.dev
