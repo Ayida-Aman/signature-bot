@@ -119,9 +119,13 @@ bot.on("message", async (msg) => {
 bot.on("channel_post", async (msg) => {
   const chatId = msg.chat.id;
   const messageId = msg.message_id;
+  if (msg.forward_from_chat || msg.forward_from || msg.forward_sender_name) {
+    return; 
+  }
   const signature = channelSignatures[chatId];
 
   if (!signature) return;
+  
 
   try {
     if (msg.text && !msg.text.includes(signature)) {
