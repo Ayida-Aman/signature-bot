@@ -135,6 +135,7 @@ bot.on("message", async (msg) => {
 });
 
 bot.on("channel_post", async (msg) => {
+  console.log("Entities:", msg.entities, "Caption Entities:", msg.caption_entities);
   const chatId = msg.chat.id;
   const messageId = msg.message_id;
   if (msg.forward_from_chat || msg.forward_from || msg.forward_sender_name) {
@@ -144,7 +145,7 @@ bot.on("channel_post", async (msg) => {
 
   if (!signature) return;
 
-  
+
   const adjustEntities = (
     entities: TelegramBot.MessageEntity[] | undefined,
     textLength: number,
@@ -160,16 +161,8 @@ bot.on("channel_post", async (msg) => {
   try {
     if (msg.text && !msg.text.includes(signature)) {
       const originalText = msg.text;
-      const signatureEntity: TelegramBot.MessageEntity[] = signature.startsWith("@")
-        ? [{
-            type: "text_link" as const,
-            offset: originalText.length + 2,
-            length: signature.length,
-            url: `https://t.me/${signature.slice(1)}`,
-          }]
-        : [];
       const updatedText = `${originalText}\n\n${signature}`;
-      const adjustedEntities = adjustEntities(msg.entities, originalText.length, `\n\n${signature}`.length).concat(signatureEntity);
+      const adjustedEntities = adjustEntities(msg.entities, originalText.length, `\n\n${signature}`.length);
 
       await bot.editMessageText(updatedText, {
         chat_id: chatId,
@@ -179,16 +172,8 @@ bot.on("channel_post", async (msg) => {
       console.log(`Edited text ${messageId} in ${chatId}`);
     } else if (msg.caption && !msg.caption.includes(signature)) {
       const originalCaption = msg.caption;
-      const signatureEntity: TelegramBot.MessageEntity[] = signature.startsWith("@")
-        ? [{
-            type: "text_link" as const,
-            offset: originalCaption.length + 2,
-            length: signature.length,
-            url: `https://t.me/${signature.slice(1)}`,
-          }]
-        : [];
       const updatedCaption = `${originalCaption}\n\n${signature}`;
-      const adjustedEntities = adjustEntities(msg.caption_entities, originalCaption.length, `\n\n${signature}`.length).concat(signatureEntity);
+      const adjustedEntities = adjustEntities(msg.caption_entities, originalCaption.length, `\n\n${signature}`.length);
 
       await bot.editMessageCaption(updatedCaption, {
         chat_id: chatId,
@@ -205,32 +190,16 @@ bot.on("channel_post", async (msg) => {
       await bot.deleteMessage(chatId, messageId);
       if (msg.text) {
         const originalText = msg.text;
-        const signatureEntity: TelegramBot.MessageEntity[] = signature.startsWith("@")
-          ? [{
-              type: "text_link" as const,
-              offset: originalText.length + 2,
-              length: signature.length,
-              url: `https://t.me/${signature.slice(1)}`,
-            }]
-          : [];
         const updatedText = `${originalText}\n\n${signature}`;
-        const adjustedEntities = adjustEntities(msg.entities, originalText.length, `\n\n${signature}`.length).concat(signatureEntity);
+        const adjustedEntities = adjustEntities(msg.entities, originalText.length, `\n\n${signature}`.length);
 
         await bot.sendMessage(chatId, updatedText, {
           entities: adjustedEntities,
         });
       } else if (msg.caption && msg.photo) {
         const originalCaption = msg.caption;
-        const signatureEntity: TelegramBot.MessageEntity[] = signature.startsWith("@")
-          ? [{
-              type: "text_link" as const,
-              offset: originalCaption.length + 2,
-              length: signature.length,
-              url: `https://t.me/${signature.slice(1)}`,
-            }]
-          : [];
         const updatedCaption = `${originalCaption}\n\n${signature}`;
-        const adjustedEntities = adjustEntities(msg.caption_entities, originalCaption.length, `\n\n${signature}`.length).concat(signatureEntity);
+        const adjustedEntities = adjustEntities(msg.caption_entities, originalCaption.length, `\n\n${signature}`.length);
 
         await bot.sendPhoto(chatId, msg.photo.at(-1)!.file_id, {
           caption: updatedCaption,
