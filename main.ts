@@ -138,43 +138,52 @@ bot.on("channel_post", async (msg) => {
   const chatId = msg.chat.id;
   const messageId = msg.message_id;
   if (msg.forward_from_chat || msg.forward_from || msg.forward_sender_name) {
-    return; 
+    return;
   }
   const signature = channelSignatures[chatId];
 
   if (!signature) return;
-  
 
   try {
+    const parseMode = msg.text_html || msg.caption_html ? "HTML" : msg.text_markdown || msg.caption_markdown ? "MarkdownV2" : undefined;
+
     if (msg.text && !msg.text.includes(signature)) {
-      const updatedText = `${msg.text}\n\n ${signature}`;
-      await bot.editMessageText(updatedText, { chat_id: chatId, message_id: messageId });
+      const updatedText = `${msg.text}\n\n${signature}`;
+      await bot.editMessageText(updatedText, {
+        chat_id: chatId,
+        message_id: messageId,
+        parse_mode: parseMode,
+      });
       console.log(`Edited text ${messageId} in ${chatId}`);
     } else if (msg.caption && !msg.caption.includes(signature)) {
-      const updatedCaption = `${msg.caption}\n\n ${signature}`;
+      const updatedCaption = `${msg.caption}\n\n${signature}`;
       await bot.editMessageCaption(updatedCaption, {
-  chat_id: chatId,
-  message_id: messageId
-});
+        chat_id: chatId,
+        message_id: messageId,
+        parse_mode: parseMode,
+      });
       console.log(`Edited caption ${messageId} in ${chatId}`);
     }
   } catch (error) {
     if (error instanceof Error) {
-  console.error(`❌ Edit failed: ${error.message}`);
-}
+      console.error(`❌ Edit failed: ${error.message}`);
+    }
     try {
       await bot.deleteMessage(chatId, messageId);
       if (msg.text) {
-        await bot.sendMessage(chatId, `${msg.text}\n\n ${signature}`);
+        await bot.sendMessage(chatId, `${msg.text}\n\n${signature}`, {
+          parse_mode: msg.text_html ? "HTML" : msg.text_markdown ? "MarkdownV2" : undefined,
+        });
       } else if (msg.caption && msg.photo) {
         await bot.sendPhoto(chatId, msg.photo.at(-1)!.file_id, {
-          caption: `${msg.caption}\n\n ${signature}`,
+          caption: `${msg.caption}\n\n${signature}`,
+          parse_mode: msg.caption_html ? "HTML" : msg.caption_markdown ? "MarkdownV2" : undefined,
         });
       }
     } catch (fallbackError) {
       if (fallbackError instanceof Error) {
-  console.error(`⚠️ Fallback failed: ${fallbackError.message}`);
-}
+        console.error(`⚠️ Fallback failed: ${fallbackError.message}`);
+      }
       await bot.sendMessage(chatId, `⚠️ Could not process your message.`);
     }
   }
