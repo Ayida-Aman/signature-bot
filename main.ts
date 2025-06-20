@@ -74,7 +74,8 @@ Commands:
 /change_signature <signature> – Update it
 /remove_signature – Delete it
 
-Note: You can use plain text (e.g., @aydus_journey) or multiple hyperlinks in Markdown, e.g., [Channel 1](https://t.me/aydus_journey) [Channel 2](https://t.me/another_channel)
+Example: /set_signature @aydus_journey
+
 `;
   bot.sendMessage(chatId, welcomeMessage);
 });
@@ -92,9 +93,7 @@ bot.onText(/\/set_signature (.+)/, (msg, match) => {
   } else {
     bot.sendMessage(
       userId,
-      "❌ Please provide a signature. Examples:\n" +
-      "- Plain text: /set_signature @aydus_journey\n" +
-      "- Hyperlinks: /set_signature [Channel 1](https://t.me/aydus_journey) [Channel 2](https://t.me/another_channel)"
+      "❌ Please provide a signature. Example: /set_signature @aydus_journey"
     );
   }
 });
@@ -112,9 +111,7 @@ bot.onText(/\/change_signature (.+)/, (msg, match) => {
   } else {
     bot.sendMessage(
       userId,
-      "❌ Please provide a new signature. Examples:\n" +
-      "- Plain text: /change_signature @aydus_journey\n" +
-      "- Hyperlinks: /change_signature [Channel 1](https://t.me/aydus_journey) [Channel 2](https://t.me/another_channel)"
+      "❌ Please provide a new signature. Example: /change_signature @aydus_journey"
     );
   }
 });
@@ -124,7 +121,8 @@ bot.onText(/\/remove_signature/, (msg) => {
   awaitingChannelId[userId] = { action: "remove" };
   bot.sendMessage(
     userId,
-    "❌ Please forward a message from the channel you want to remove the signature from, or provide the channel ID (e.g., 24315194535). Note that I need to be an admin on your channel to check the admin status"
+    "❌ Please forward a message from the channel you want to remove the signature from, or provide the channel ID (e.g., 24315194535).\n\n" +
+    "Req: You need to make me an admin first (if you haven't yet) to check the admin status"
   );
 });
 
@@ -135,6 +133,7 @@ bot.on("message", async (msg) => {
 
   let channelId: string | undefined;
 
+  // Handle forwarded message
   if (msg.forward_from_chat && msg.forward_from_chat.id) {
     channelId = msg.forward_from_chat.id.toString();
   }
@@ -147,7 +146,11 @@ bot.on("message", async (msg) => {
   }
 
   if (!channelId) {
-    await bot.sendMessage(userId, "🚫 Please forward a message from the channel or provide a valid channel ID. Note that I need to be an admin on your channel to check the admin status");
+    await bot.sendMessage(
+      userId,
+      "🚫 Please forward a message from the channel or provide a valid channel ID.\n\n" +
+      "Req: You need to make me an admin first (if you haven't yet) to check the admin status"
+    );
     return;
   }
 
@@ -173,7 +176,7 @@ bot.on("message", async (msg) => {
 });
 
 bot.on("channel_post", async (msg) => {
-  console.log("Channel Post:", { chatId: msg.chat.id, messageId: msg.message_id, entities: msg.entities, captionEntities: msg.caption_entities });
+  console.log("Entities:", msg.entities, "Caption Entities:", msg.caption_entities);
   const chatId = msg.chat.id;
   const messageId = msg.message_id;
   if (msg.forward_from_chat || msg.forward_from || msg.forward_sender_name) {
@@ -195,69 +198,23 @@ bot.on("channel_post", async (msg) => {
     }));
   };
 
-  const parseSignature = (signature: string): { text: string; entities: TelegramBot.MessageEntity[] } => {
-    const entities: TelegramBot.MessageEntity[] = [];
-    let text = signature;
-    let offsetAdjustment = 0;
-
-    const hyperlinkRegex = /\[([^\]\[]+)\]\((https?:\/\/[^\s)]+)\)/g;
-    let match;
-    while ((match = hyperlinkRegex.exec(signature)) !== null) {
-      const [fullMatch, linkText, url] = match;
-      const startIndex = match.index - offsetAdjustment;
-      if (startIndex >= 0 && linkText.length > 0 && url.length <= 256) {
-        entities.push({
-          type: "text_link" as const,
-          offset: startIndex,
-          length: linkText.length,
-          url,
-        });
-        text = text.slice(0, startIndex) + linkText + text.slice(startIndex + fullMatch.length);
-        offsetAdjustment += fullMatch.length - linkText.length;
-      }
-    }
-
-    console.log("Parsed Signature:", { signature, text, entities });
-    return { text, entities };
-  };
-
   try {
-    const { text: signatureText, entities: signatureEntities } = parseSignature(signature);
-
-    if (msg.text && !msg.text.includes(signatureText)) {
+    if (msg.text && !msg.text.includes(signature)) {
       const originalText = msg.text;
-      const updatedText = `${originalText}\n\n${signatureText}`;
-      const adjustedEntities = adjustEntities(msg.entities, originalText.length, `\n\n${signatureText}`.length).concat(
-        signatureEntities.map((entity) => {
-          const newOffset = entity.offset + originalText.length + 2;
-          return {
-            ...entity,
-            offset: newOffset,
-          };
-        })
-      );
+      const updatedText = `${originalText}\n\n${signature}`;
+      const adjustedEntities = adjustEntities(msg.entities, originalText.length, `\n\n${signature}`.length);
 
-      console.log("Applying Text Entities:", adjustedEntities);
       await bot.editMessageText(updatedText, {
         chat_id: chatId,
         message_id: messageId,
         entities: adjustedEntities,
       } as TelegramBot.EditMessageTextOptions);
       console.log(`Edited text ${messageId} in ${chatId}`);
-    } else if (msg.caption && !msg.caption.includes(signatureText)) {
+    } else if (msg.caption && !msg.caption.includes(signature)) {
       const originalCaption = msg.caption;
-      const updatedCaption = `${originalCaption}\n\n${signatureText}`;
-      const adjustedEntities = adjustEntities(msg.caption_entities, originalCaption.length, `\n\n${signatureText}`.length).concat(
-        signatureEntities.map((entity) => {
-          const newOffset = entity.offset + originalCaption.length + 2;
-          return {
-            ...entity,
-            offset: newOffset,
-          };
-        })
-      );
+      const updatedCaption = `${originalCaption}\n\n${signature}`;
+      const adjustedEntities = adjustEntities(msg.caption_entities, originalCaption.length, `\n\n${signature}`.length);
 
-      console.log("Applying Caption Entities:", adjustedEntities);
       await bot.editMessageCaption(updatedCaption, {
         chat_id: chatId,
         message_id: messageId,
@@ -271,32 +228,19 @@ bot.on("channel_post", async (msg) => {
     }
     try {
       await bot.deleteMessage(chatId, messageId);
-      const { text: signatureText, entities: signatureEntities } = parseSignature(signature);
       if (msg.text) {
         const originalText = msg.text;
-        const updatedText = `${originalText}\n\n${signatureText}`;
-        const adjustedEntities = adjustEntities(msg.entities, originalText.length, `\n\n${signatureText}`.length).concat(
-          signatureEntities.map((entity) => ({
-            ...entity,
-            offset: entity.offset + originalText.length + 2,
-          }))
-        );
+        const updatedText = `${originalText}\n\n${signature}`;
+        const adjustedEntities = adjustEntities(msg.entities, originalText.length, `\n\n${signature}`.length);
 
-        console.log("Fallback Text Entities:", adjustedEntities);
         await bot.sendMessage(chatId, updatedText, {
           entities: adjustedEntities,
         });
       } else if (msg.caption && msg.photo) {
         const originalCaption = msg.caption;
-        const updatedCaption = `${originalCaption}\n\n${signatureText}`;
-        const adjustedEntities = adjustEntities(msg.caption_entities, originalCaption.length, `\n\n${signatureText}`.length).concat(
-          signatureEntities.map((entity) => ({
-            ...entity,
-            offset: entity.offset + originalCaption.length + 2,
-          }))
-        );
+        const updatedCaption = `${originalCaption}\n\n${signature}`;
+        const adjustedEntities = adjustEntities(msg.caption_entities, originalCaption.length, `\n\n${signature}`.length);
 
-        console.log("Fallback Caption Entities:", adjustedEntities);
         await bot.sendPhoto(chatId, msg.photo.at(-1)!.file_id, {
           caption: updatedCaption,
           caption_entities: adjustedEntities,
@@ -306,7 +250,7 @@ bot.on("channel_post", async (msg) => {
       if (fallbackError instanceof Error) {
         console.error(`⚠️ Fallback failed: ${fallbackError.message}`);
       }
-      await bot.sendMessage(chatId, "⚠️ Could not process your message.");
+      await bot.sendMessage(chatId, `⚠️ Could not process your message.`);
     }
   }
 });
@@ -326,4 +270,3 @@ Deno.serve({ port: 8000 }, async (req) => {
 });
 
 console.log("Bot is running...");
-
