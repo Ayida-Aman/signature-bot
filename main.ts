@@ -144,15 +144,16 @@ bot.on("channel_post", async (msg) => {
 
   if (!signature) return;
 
-  try {
-    const parseMode = msg.text_html || msg.caption_html ? "HTML" : msg.text_markdown || msg.caption_markdown ? "MarkdownV2" : undefined;
+  const escapeMarkdown = (text: string) =>
+    text.replace(/([_*[\]()~`>#+-=|{}.!])/g, "\\$1");
 
+  try {
     if (msg.text && !msg.text.includes(signature)) {
       const updatedText = `${msg.text}\n\n${signature}`;
       await bot.editMessageText(updatedText, {
         chat_id: chatId,
         message_id: messageId,
-        parse_mode: parseMode,
+        parse_mode: "MarkdownV2",
       });
       console.log(`Edited text ${messageId} in ${chatId}`);
     } else if (msg.caption && !msg.caption.includes(signature)) {
@@ -160,7 +161,7 @@ bot.on("channel_post", async (msg) => {
       await bot.editMessageCaption(updatedCaption, {
         chat_id: chatId,
         message_id: messageId,
-        parse_mode: parseMode,
+        parse_mode: "MarkdownV2",
       });
       console.log(`Edited caption ${messageId} in ${chatId}`);
     }
@@ -171,13 +172,17 @@ bot.on("channel_post", async (msg) => {
     try {
       await bot.deleteMessage(chatId, messageId);
       if (msg.text) {
-        await bot.sendMessage(chatId, `${msg.text}\n\n${signature}`, {
-          parse_mode: msg.text_html ? "HTML" : msg.text_markdown ? "MarkdownV2" : undefined,
+        const escapedText = escapeMarkdown(msg.text);
+        const escapedSignature = escapeMarkdown(signature);
+        await bot.sendMessage(chatId, `${escapedText}\n\n${escapedSignature}`, {
+          parse_mode: "MarkdownV2",
         });
       } else if (msg.caption && msg.photo) {
+        const escapedCaption = escapeMarkdown(msg.caption);
+        const escapedSignature = escapeMarkdown(signature);
         await bot.sendPhoto(chatId, msg.photo.at(-1)!.file_id, {
-          caption: `${msg.caption}\n\n${signature}`,
-          parse_mode: msg.caption_html ? "HTML" : msg.caption_markdown ? "MarkdownV2" : undefined,
+          caption: `${escapedCaption}\n\n${escapedSignature}`,
+          parse_mode: "MarkdownV2",
         });
       }
     } catch (fallbackError) {
