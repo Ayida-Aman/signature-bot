@@ -144,25 +144,57 @@ bot.on("channel_post", async (msg) => {
 
   if (!signature) return;
 
-  const escapeMarkdown = (text: string) =>
-    text.replace(/([_*[\]()~`>#+-=|{}.!])/g, "\\$1");
+  
+  const adjustEntities = (
+    entities: TelegramBot.MessageEntity[] | undefined,
+    textLength: number,
+    appendLength: number
+  ): TelegramBot.MessageEntity[] => {
+    if (!entities) return [];
+    return entities.map((entity) => ({
+      ...entity,
+      offset: entity.offset < textLength ? entity.offset : entity.offset + appendLength,
+    }));
+  };
 
   try {
     if (msg.text && !msg.text.includes(signature)) {
-      const updatedText = `${msg.text}\n\n${signature}`;
+      const originalText = msg.text;
+      const signatureEntity: TelegramBot.MessageEntity[] = signature.startsWith("@")
+        ? [{
+            type: "text_link" as const,
+            offset: originalText.length + 2,
+            length: signature.length,
+            url: `https://t.me/${signature.slice(1)}`,
+          }]
+        : [];
+      const updatedText = `${originalText}\n\n${signature}`;
+      const adjustedEntities = adjustEntities(msg.entities, originalText.length, `\n\n${signature}`.length).concat(signatureEntity);
+
       await bot.editMessageText(updatedText, {
         chat_id: chatId,
         message_id: messageId,
-        parse_mode: "MarkdownV2",
-      });
+        entities: adjustedEntities,
+      } as TelegramBot.EditMessageTextOptions);
       console.log(`Edited text ${messageId} in ${chatId}`);
     } else if (msg.caption && !msg.caption.includes(signature)) {
-      const updatedCaption = `${msg.caption}\n\n${signature}`;
+      const originalCaption = msg.caption;
+      const signatureEntity: TelegramBot.MessageEntity[] = signature.startsWith("@")
+        ? [{
+            type: "text_link" as const,
+            offset: originalCaption.length + 2,
+            length: signature.length,
+            url: `https://t.me/${signature.slice(1)}`,
+          }]
+        : [];
+      const updatedCaption = `${originalCaption}\n\n${signature}`;
+      const adjustedEntities = adjustEntities(msg.caption_entities, originalCaption.length, `\n\n${signature}`.length).concat(signatureEntity);
+
       await bot.editMessageCaption(updatedCaption, {
         chat_id: chatId,
         message_id: messageId,
-        parse_mode: "MarkdownV2",
-      });
+        caption_entities: adjustedEntities,
+      } as TelegramBot.EditMessageCaptionOptions);
       console.log(`Edited caption ${messageId} in ${chatId}`);
     }
   } catch (error) {
@@ -172,17 +204,37 @@ bot.on("channel_post", async (msg) => {
     try {
       await bot.deleteMessage(chatId, messageId);
       if (msg.text) {
-        const escapedText = escapeMarkdown(msg.text);
-        const escapedSignature = escapeMarkdown(signature);
-        await bot.sendMessage(chatId, `${escapedText}\n\n${escapedSignature}`, {
-          parse_mode: "MarkdownV2",
+        const originalText = msg.text;
+        const signatureEntity: TelegramBot.MessageEntity[] = signature.startsWith("@")
+          ? [{
+              type: "text_link" as const,
+              offset: originalText.length + 2,
+              length: signature.length,
+              url: `https://t.me/${signature.slice(1)}`,
+            }]
+          : [];
+        const updatedText = `${originalText}\n\n${signature}`;
+        const adjustedEntities = adjustEntities(msg.entities, originalText.length, `\n\n${signature}`.length).concat(signatureEntity);
+
+        await bot.sendMessage(chatId, updatedText, {
+          entities: adjustedEntities,
         });
       } else if (msg.caption && msg.photo) {
-        const escapedCaption = escapeMarkdown(msg.caption);
-        const escapedSignature = escapeMarkdown(signature);
+        const originalCaption = msg.caption;
+        const signatureEntity: TelegramBot.MessageEntity[] = signature.startsWith("@")
+          ? [{
+              type: "text_link" as const,
+              offset: originalCaption.length + 2,
+              length: signature.length,
+              url: `https://t.me/${signature.slice(1)}`,
+            }]
+          : [];
+        const updatedCaption = `${originalCaption}\n\n${signature}`;
+        const adjustedEntities = adjustEntities(msg.caption_entities, originalCaption.length, `\n\n${signature}`.length).concat(signatureEntity);
+
         await bot.sendPhoto(chatId, msg.photo.at(-1)!.file_id, {
-          caption: `${escapedCaption}\n\n${escapedSignature}`,
-          parse_mode: "MarkdownV2",
+          caption: updatedCaption,
+          caption_entities: adjustedEntities,
         });
       }
     } catch (fallbackError) {
