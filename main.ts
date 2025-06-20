@@ -74,7 +74,7 @@ Commands:
 /change_signature <signature> – Update it
 /remove_signature – Delete it
 
-Example: /set_signature @aydus_journal
+Note: You can use plain text (e.g., @aydus_journey) or multiple hyperlinks in Markdown, e.g., [Channel 1](https://t.me/aydus_journey) [Channel 2](https://t.me/another_channel)
 `;
   bot.sendMessage(chatId, welcomeMessage);
 });
@@ -87,8 +87,7 @@ bot.onText(/\/set_signature (.+)/, (msg, match) => {
     bot.sendMessage(
       userId,
       "📌 Please forward a message from the channel you want to set the signature for, or provide the channel ID (e.g., 24315194535).\n\n" +
-      "Req: You need to make me and admin first (if you haven't yet) to check the admin status \n\n" +
-      "Note: You can use plain text (e.g., @aydus_journey) or multiple hyperlinks in Markdown, e.g., [Channel 1](https://t.me/aydus_journey) [Channel 2](https://t.me/another_channel)"
+      "Req: You need to make me and admin first (if you haven't yet) to check the admin status \n" 
     );
   } else {
     bot.sendMessage(
@@ -107,8 +106,7 @@ bot.onText(/\/change_signature (.+)/, (msg, match) => {
     awaitingChannelId[userId] = { action: "change", signature };
     bot.sendMessage(
       userId,
-      "🔁 Please forward a message from the channel you want to update the signature for, or provide the channel ID (e.g., 24315194535).\n\n" +
-      "Note: You can use plain text (e.g., @aydus_journey) or multiple hyperlinks in Markdown, e.g., [Channel 1](https://t.me/aydus_journey) [Channel 2](https://t.me/another_channel)"
+      "🔁 Please forward a message from the channel you want to update the signature for, or provide the channel ID (e.g., 24315194535).\n" 
     );
   } else {
     bot.sendMessage(
