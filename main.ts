@@ -23,6 +23,16 @@ const awaitingChannelId: Record<number, { action: string; signature?: string }> 
 
 const kv = await Deno.openKv();
 
+async function isUserAdmin(channelId: string, userId: number): Promise<boolean> {
+  try {
+    const member = await bot.getChatMember(channelId, userId);
+    return member.status === "administrator" || member.status === "creator";
+  } catch (error) {
+    console.error("❌ Failed to verify admin:", error);
+    return false;
+  }
+}
+
 async function loadSignatures() {
   for await (const entry of kv.list({ prefix: ["signatures"] })) {
     channelSignatures[entry.key[1] as string] = entry.value as string;
@@ -97,23 +107,31 @@ bot.on("message", async (msg) => {
   const userId = msg.chat.id;
   const pending = awaitingChannelId[userId];
   if (pending && msg.text) {
-    let channelId = msg.text.trim();
-    if (!channelId.startsWith("-100")) {
-      channelId = `-100${channelId}`;
-    }
-
-    if (pending.action === "remove") {
-      await removeSignature(channelId);
-      bot.sendMessage(userId, `✅ Signature removed for ${channelId}`);
-    } else if (pending.signature) {
-      await saveSignature(channelId, pending.signature);
-      bot.sendMessage(
-        userId,
-        `✅ Signature "${pending.signature}" ${pending.action === "set" ? "saved" : "updated"} for ${channelId}`
-      );
-    }
-    delete awaitingChannelId[userId];
+  let channelId = msg.text.trim();
+  if (!channelId.startsWith("-100")) {
+    channelId = `-100${channelId}`;
   }
+
+  const isAdmin = await isUserAdmin(channelId, userId);
+  if (!isAdmin) {
+    await bot.sendMessage(userId, "🚫 You must be an admin or owner of the channel to manage its signature.");
+    delete awaitingChannelId[userId];
+    return;
+  }
+
+  if (pending.action === "remove") {
+    await removeSignature(channelId);
+    bot.sendMessage(userId, `✅ Signature removed for ${channelId}`);
+  } else if (pending.signature) {
+    await saveSignature(channelId, pending.signature);
+    bot.sendMessage(
+      userId,
+      `✅ Signature "${pending.signature}" ${pending.action === "set" ? "saved" : "updated"} for ${channelId}`
+    );
+  }
+
+  delete awaitingChannelId[userId];
+}
 });
 
 bot.on("channel_post", async (msg) => {
@@ -177,3 +195,4 @@ Deno.serve({ port: 8000 }, async (req) => {
 });
 
 console.log("Bot is running...");
+
