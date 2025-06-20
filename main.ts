@@ -84,7 +84,12 @@ bot.onText(/\/set_signature (.+)/, (msg, match) => {
   const signature = match?.[1];
   if (signature) {
     awaitingChannelId[userId] = { action: "set", signature };
-    bot.sendMessage(userId, "📌 Please provide your channel ID. example: 24315194535");
+    bot.sendMessage(
+      userId,
+      "📌 Please forward a message from the channel you want to set the signature for, or provide the channel ID (e.g., 24315194535). Note that I need to be an admin on your channel to check the admin status"
+    );
+  } else {
+    bot.sendMessage(userId, "❌ Please provide a signature. Example: /set_signature @aydus_journey");
   }
 });
 
@@ -93,23 +98,46 @@ bot.onText(/\/change_signature (.+)/, (msg, match) => {
   const signature = match?.[1];
   if (signature) {
     awaitingChannelId[userId] = { action: "change", signature };
-    bot.sendMessage(userId, "🔁 Which channel ID do you want to update?");
+    bot.sendMessage(
+      userId,
+      "🔁 Please forward a message from the channel you want to update the signature for, or provide the channel ID (e.g., 24315194535). Note that I need to be an admin on your channel to check the admin status"
+    );
+  } else {
+    bot.sendMessage(userId, "❌ Please provide a new signature. Example: /change_signature @aydus_journey");
   }
 });
 
 bot.onText(/\/remove_signature/, (msg) => {
   const userId = msg.chat.id;
   awaitingChannelId[userId] = { action: "remove" };
-  bot.sendMessage(userId, "❌ Enter the channel ID to remove its signature.");
+  bot.sendMessage(
+    userId,
+    "❌ Please forward a message from the channel you want to remove the signature from, or provide the channel ID (e.g., 24315194535). Note that I need to be an admin on your channel to check the admin status"
+  );
 });
 
 bot.on("message", async (msg) => {
   const userId = msg.chat.id;
   const pending = awaitingChannelId[userId];
-  if (pending && msg.text) {
-  let channelId = msg.text.trim();
-  if (!channelId.startsWith("-100")) {
-    channelId = `-100${channelId}`;
+  if (!pending || (!msg.text && !msg.forward_from_chat)) return;
+
+  let channelId: string | undefined;
+
+  // Handle forwarded message
+  if (msg.forward_from_chat && msg.forward_from_chat.id) {
+    channelId = msg.forward_from_chat.id.toString();
+  }
+  // Handle manual channel ID input
+  else if (msg.text) {
+    channelId = msg.text.trim();
+    if (!channelId.startsWith("-100")) {
+      channelId = `-100${channelId}`;
+    }
+  }
+
+  if (!channelId) {
+    await bot.sendMessage(userId, "🚫 Please forward a message from the channel or provide a valid channel ID. Note that I need to be an admin on your channel to check the admin status");
+    return;
   }
 
   const isAdmin = await isUserAdmin(channelId, userId);
@@ -121,17 +149,16 @@ bot.on("message", async (msg) => {
 
   if (pending.action === "remove") {
     await removeSignature(channelId);
-    bot.sendMessage(userId, `✅ Signature removed for ${channelId}`);
+    await bot.sendMessage(userId, `✅ Signature removed for channel ${channelId}`);
   } else if (pending.signature) {
     await saveSignature(channelId, pending.signature);
-    bot.sendMessage(
+    await bot.sendMessage(
       userId,
-      `✅ Signature "${pending.signature}" ${pending.action === "set" ? "saved" : "updated"} for ${channelId}`
+      `✅ Signature "${pending.signature}" ${pending.action === "set" ? "saved" : "updated"} for channel ${channelId}`
     );
   }
 
   delete awaitingChannelId[userId];
-}
 });
 
 bot.on("channel_post", async (msg) => {
