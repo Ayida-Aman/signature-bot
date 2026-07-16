@@ -89,7 +89,7 @@ bot.onText(/\/restore/, async (msg) => {
   const chatId = msg.chat.id;
   const username = msg.from?.username?.toLowerCase();
 
-  if (username !== "aydus_journey") {
+  if (username !== "Ayida_A_Shifa") {
     return bot.sendMessage(chatId, "🚫 Only the bot owner can restore data.");
   }
 
