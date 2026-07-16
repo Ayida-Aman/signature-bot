@@ -89,7 +89,7 @@ bot.onText(/\/backup/, async (msg) => {
   const chatId = msg.chat.id;
   const username = msg.from?.username?.toLowerCase();
 
-  const OWNER_USERNAME = "aydus_journey";   // ← Change this if your username is different
+  const OWNER_USERNAME = "Ayida_A_Shifa";   // ← Change this if your username is different
 
   if (!username || username !== OWNER_USERNAME.toLowerCase()) {
     return bot.sendMessage(chatId, "🚫 This command is only for the bot owner.");
