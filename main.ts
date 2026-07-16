@@ -138,6 +138,36 @@ bot.onText(/\/remove_signature/, (msg) => {
   );
 });
 
+
+// backup database
+
+// === SECURE BACKUP COMMAND (Only for you by username) ===
+bot.onText(/\/backup/, async (msg) => {
+  const chatId = msg.chat.id;
+  const username = msg.from?.username?.toLowerCase();
+
+  // ← CHANGE THIS to your username (without @)
+  const OWNER_USERNAME = "Ayida_A_Shifa";   
+
+  if (!username || username !== OWNER_USERNAME.toLowerCase()) {
+    return bot.sendMessage(chatId, "🚫 This command is only for the bot owner.");
+  }
+
+  if (Object.keys(channelSignatures).length === 0) {
+    return bot.sendMessage(chatId, "📭 No signatures found.");
+  }
+
+  let text = "🔄 **Signature Backup**\n\n";
+  
+  for (const [channelId, signature] of Object.entries(channelSignatures)) {
+    text += `📌 Channel: \`${channelId}\`\n`;
+    text += `✍️ Signature: ${signature}\n\n`;
+  }
+
+  await bot.sendMessage(chatId, text, { parse_mode: "MarkdownV2" });
+  console.log(`Backup sent to owner @${username}`);
+});
+
 // ==================== MESSAGE HANDLER ====================
 bot.on("message", async (msg) => {
   const userId = msg.chat.id;
