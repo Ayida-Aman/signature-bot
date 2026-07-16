@@ -83,6 +83,64 @@ if (!IN_DEV_MODE) {
   console.log("Running in polling mode (development)");
 }
 
+
+// ==================== SECURE RESTORE COMMAND (Run once) ====================
+bot.onText(/\/restore/, async (msg) => {
+  const chatId = msg.chat.id;
+  const username = msg.from?.username?.toLowerCase();
+
+  if (username !== "aydus_journey") {
+    return bot.sendMessage(chatId, "🚫 Only the bot owner can restore data.");
+  }
+
+  const signaturesToRestore = {
+    "-1001002200139754": "@devnerd0",
+    "-1001147878754": "@wkuevacsf",
+    "-1001238775422": "@visioninbyte",
+    "-1001522123008": "@free_cpurse",
+    "-1001530717753": "@andebet_mezin",
+    "-1001553320992": '"@Qassamcircle"',
+    "-1001659642942": "• @GlobalNewsAgency",
+    "-1001779548428": "hi",
+    "-1001832030361": "@academec_hub",
+    "-1001917081487": "@Aplusproductivity",
+    "-1001929255723": "@josepht273",
+    "-1001998503512": "ps : your Mama's favourite",
+    "-1002020200827": "@rahwanmakes",
+    "-1002085543176": "@genenetise01",
+    "-1002110967921": "I build apps for the iPhone. @XCYohannes",
+    "-1002113806215": "@KashkBademjooon",
+    "-1002133819209": "@ethiocodecomm",
+    "-1002199944175": " @naol_builds",
+    "-1002216362039": "@supermarye",
+    "-1002252607776": "@Qassamcircle",
+    "-1002265262047": "@beegail_growth",
+    "-1002293447538": "@ekddesign",
+    "-1002300984798": "@thechillcodinglounge",
+    "-1002311921291": "@codegrinder",
+    "-1002332678220": "@akselsmemo",
+    "-1002406665120": "@Bright_Codes",
+    "-1002412839333": "#Theodore",
+    "-1002415149495": "Join our Educational Channels:",
+    "-1002418652831": "@Oro_Sport0",
+    "-1002428279370": "@lidsverse",
+    "-1002431124237": "test",
+    "-1002474367300": "@aydus_journal",
+    "-1002498395974": "@Jonazz22",
+    "-1002546374756": "@dot_ruth",
+    "-1002546973684": "with @amenadams"
+  };
+
+  let count = 0;
+  for (const [channelId, signature] of Object.entries(signaturesToRestore)) {
+    await saveSignature(channelId, signature);
+    count++;
+  }
+
+  await bot.sendMessage(chatId, `✅ Successfully restored ${count} signatures!`);
+  console.log(`Restored ${count} signatures`);
+});
+
 // ==================== SECURE BACKUP COMMAND ====================
 bot.onText(/\/backup/, async (msg) => {
   const chatId = msg.chat.id;
