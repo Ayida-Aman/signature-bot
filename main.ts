@@ -41,6 +41,7 @@ async function loadSignatures() {
     channelSignatures[entry.key[1] as string] = entry.value as string;
   }
   console.log("Loaded Signatures:", channelSignatures);
+  console.log(`📊 Total signatures loaded: ${Object.keys(channelSignatures).length}`);
 }
 
 async function saveSignature(channelId: string, signature: string) {
@@ -57,10 +58,9 @@ async function removeSignature(channelId: string) {
 
 await loadSignatures();
 
-// ==================== WEBHOOK HANDLER (New Deno Deploy) ====================
+// ==================== WEBHOOK HANDLER ====================
 const handler = async (req: Request): Promise<Response> => {
   const url = new URL(req.url);
-
   if (req.method === "POST" && url.pathname === WEBHOOK_PATH) {
     try {
       const update = await req.json();
@@ -71,19 +71,42 @@ const handler = async (req: Request): Promise<Response> => {
       return new Response("Error", { status: 500 });
     }
   }
-
   return new Response("Not Found", { status: 404 });
 };
 
 // ==================== BOT SETUP ====================
 if (!IN_DEV_MODE) {
-  // TODO: Change this after deploying on new Deno Deploy
-  const WEBHOOK_URL = `https://signature-bot-vzf6v7ns2bxe.ayida-aman.deno.net${WEBHOOK_PATH}`;  await bot.setWebHook(WEBHOOK_URL, { secret_token: WEBHOOK_SECRET_TOKEN });
+  const WEBHOOK_URL = `https://signature-bot-vzf6v7ns2bxe.ayida-aman.deno.net${WEBHOOK_PATH}`;
+  await bot.setWebHook(WEBHOOK_URL, { secret_token: WEBHOOK_SECRET_TOKEN });
   console.log(`✅ Webhook set to: ${WEBHOOK_URL}`);
 } else {
   await bot.deleteWebHook();
   console.log("Running in polling mode (development)");
 }
+
+// ==================== SECURE BACKUP COMMAND ====================
+bot.onText(/\/backup/, async (msg) => {
+  const chatId = msg.chat.id;
+  const username = msg.from?.username?.toLowerCase();
+
+  const OWNER_USERNAME = "aydus_journey";   // ← Change this if your username is different
+
+  if (!username || username !== OWNER_USERNAME.toLowerCase()) {
+    return bot.sendMessage(chatId, "🚫 This command is only for the bot owner.");
+  }
+
+  if (Object.keys(channelSignatures).length === 0) {
+    return bot.sendMessage(chatId, "📭 No signatures found.");
+  }
+
+  let text = "🔄 **Signature Backup**\n\n";
+  for (const [channelId, signature] of Object.entries(channelSignatures)) {
+    text += `📌 Channel: \`${channelId}\`\n✍️ Signature: ${signature}\n\n`;
+  }
+
+  await bot.sendMessage(chatId, text, { parse_mode: "MarkdownV2" });
+  console.log(`Backup sent to owner @${username}`);
+});
 
 // ==================== COMMANDS ====================
 bot.onText(/\/start/, (msg) => {
@@ -139,34 +162,6 @@ bot.onText(/\/remove_signature/, (msg) => {
 });
 
 
-// backup database
-
-// === SECURE BACKUP COMMAND (Only for you by username) ===
-bot.onText(/\/backup/, async (msg) => {
-  const chatId = msg.chat.id;
-  const username = msg.from?.username?.toLowerCase();
-
-  // ← CHANGE THIS to your username (without @)
-  const OWNER_USERNAME = "Ayida_A_Shifa";   
-
-  if (!username || username !== OWNER_USERNAME.toLowerCase()) {
-    return bot.sendMessage(chatId, "🚫 This command is only for the bot owner.");
-  }
-
-  if (Object.keys(channelSignatures).length === 0) {
-    return bot.sendMessage(chatId, "📭 No signatures found.");
-  }
-
-  let text = "🔄 **Signature Backup**\n\n";
-  
-  for (const [channelId, signature] of Object.entries(channelSignatures)) {
-    text += `📌 Channel: \`${channelId}\`\n`;
-    text += `✍️ Signature: ${signature}\n\n`;
-  }
-
-  await bot.sendMessage(chatId, text, { parse_mode: "MarkdownV2" });
-  console.log(`Backup sent to owner @${username}`);
-});
 
 // ==================== MESSAGE HANDLER ====================
 bot.on("message", async (msg) => {
