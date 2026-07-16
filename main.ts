@@ -76,8 +76,7 @@ const handler = async (req: Request): Promise<Response> => {
 
 // ==================== BOT SETUP ====================
 if (!IN_DEV_MODE) {
-  const WEBHOOK_URL = `https://signature-bot-vzf6v7ns2bxe.ayida-aman.deno.net${WEBHOOK_PATH}`;
-  await bot.setWebHook(WEBHOOK_URL, { secret_token: WEBHOOK_SECRET_TOKEN });
+  const WEBHOOK_URL = `https://signature-bot.ayida-aman.deno.net${WEBHOOK_PATH}`;  await bot.setWebHook(WEBHOOK_URL, { secret_token: WEBHOOK_SECRET_TOKEN });
   console.log(`✅ Webhook set to: ${WEBHOOK_URL}`);
 } else {
   await bot.deleteWebHook();
