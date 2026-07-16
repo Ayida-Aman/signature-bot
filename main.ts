@@ -10,14 +10,17 @@ if (Deno.env.get("DENO_ENV") === "development") {
 const TELEGRAM_BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
 const WEBHOOK_SECRET_TOKEN = Deno.env.get("WEBHOOK_SECRET_TOKEN");
 const IN_DEV_MODE = Deno.env.get("DENO_ENV") === "development";
-console.log("TELEGRAM_BOT_TOKEN:", TELEGRAM_BOT_TOKEN);
-console.log("WEBHOOK_SECRET_TOKEN:", WEBHOOK_SECRET_TOKEN);
+
+console.log("TELEGRAM_BOT_TOKEN:", TELEGRAM_BOT_TOKEN ? "✅ Loaded" : "❌ Missing");
+console.log("WEBHOOK_SECRET_TOKEN:", WEBHOOK_SECRET_TOKEN ? "✅ Loaded" : "❌ Missing");
+
 if (!TELEGRAM_BOT_TOKEN || !WEBHOOK_SECRET_TOKEN) {
   throw new Error("Missing environment variables");
 }
 
 const bot = new TelegramBot(TELEGRAM_BOT_TOKEN);
 const WEBHOOK_PATH = `/${WEBHOOK_SECRET_TOKEN}`;
+
 const channelSignatures: Record<string, string> = {};
 const awaitingChannelId: Record<number, { action: string; signature?: string }> = {};
 
@@ -54,15 +57,35 @@ async function removeSignature(channelId: string) {
 
 await loadSignatures();
 
+// ==================== WEBHOOK HANDLER (New Deno Deploy) ====================
+const handler = async (req: Request): Promise<Response> => {
+  const url = new URL(req.url);
+
+  if (req.method === "POST" && url.pathname === WEBHOOK_PATH) {
+    try {
+      const update = await req.json();
+      await bot.processUpdate(update);
+      return new Response("OK", { status: 200 });
+    } catch (error) {
+      console.error("Webhook error:", error);
+      return new Response("Error", { status: 500 });
+    }
+  }
+
+  return new Response("Not Found", { status: 404 });
+};
+
+// ==================== BOT SETUP ====================
 if (!IN_DEV_MODE) {
-  const WEBHOOK_URL = `https://telegram-signature-bot.deno.dev${WEBHOOK_PATH}`;
-  await bot.setWebHook(WEBHOOK_URL, { secret_token: WEBHOOK_SECRET_TOKEN });
-  console.log(`Webhook set to ${WEBHOOK_URL}`);
+  // TODO: Change this after deploying on new Deno Deploy
+  const WEBHOOK_URL = `https://signature-bot-vzf6v7ns2bxe.ayida-aman.deno.net${WEBHOOK_PATH}`;  await bot.setWebHook(WEBHOOK_URL, { secret_token: WEBHOOK_SECRET_TOKEN });
+  console.log(`✅ Webhook set to: ${WEBHOOK_URL}`);
 } else {
   await bot.deleteWebHook();
-  console.log("Running in polling mode");
+  console.log("Running in polling mode (development)");
 }
 
+// ==================== COMMANDS ====================
 bot.onText(/\/start/, (msg) => {
   const chatId = msg.chat.id;
   const welcomeMessage = `👋 Welcome to SignatureBot!
@@ -74,9 +97,7 @@ Commands:
 /change_signature <signature> – Update it
 /remove_signature – Delete it
 
-Example: /set_signature @aydus_journey
-
-`;
+Example: /set_signature @aydus_journey`;
   bot.sendMessage(chatId, welcomeMessage);
 });
 
@@ -85,16 +106,12 @@ bot.onText(/\/set_signature (.+)/, (msg, match) => {
   const signature = match?.[1];
   if (signature) {
     awaitingChannelId[userId] = { action: "set", signature };
-    bot.sendMessage(
-      userId,
+    bot.sendMessage(userId,
       "📌 Please forward a message from the channel you want to set the signature for, or provide the channel ID (e.g., 24315194535).\n\n" +
-      "Req: You need to make me an admin first (if you haven't yet) to check the admin status"
+      "Req: Make sure the bot is an admin in the channel first."
     );
   } else {
-    bot.sendMessage(
-      userId,
-      "❌ Please provide a signature. Example: /set_signature @aydus_journey"
-    );
+    bot.sendMessage(userId, "❌ Please provide a signature. Example: /set_signature @aydus_journey");
   }
 });
 
@@ -103,29 +120,25 @@ bot.onText(/\/change_signature (.+)/, (msg, match) => {
   const signature = match?.[1];
   if (signature) {
     awaitingChannelId[userId] = { action: "change", signature };
-    bot.sendMessage(
-      userId,
+    bot.sendMessage(userId,
       "🔁 Please forward a message from the channel you want to update the signature for, or provide the channel ID (e.g., 24315194535).\n\n" +
-      "Req: You need to make me an admin first (if you haven't yet) to check the admin status"
+      "Req: Make sure the bot is an admin in the channel first."
     );
   } else {
-    bot.sendMessage(
-      userId,
-      "❌ Please provide a new signature. Example: /change_signature @aydus_journey"
-    );
+    bot.sendMessage(userId, "❌ Please provide a new signature. Example: /change_signature @aydus_journey");
   }
 });
 
 bot.onText(/\/remove_signature/, (msg) => {
   const userId = msg.chat.id;
   awaitingChannelId[userId] = { action: "remove" };
-  bot.sendMessage(
-    userId,
+  bot.sendMessage(userId,
     "❌ Please forward a message from the channel you want to remove the signature from, or provide the channel ID (e.g., 24315194535).\n\n" +
-    "Req: You need to make me an admin first (if you haven't yet) to check the admin status"
+    "Req: Make sure the bot is an admin in the channel first."
   );
 });
 
+// ==================== MESSAGE HANDLER ====================
 bot.on("message", async (msg) => {
   const userId = msg.chat.id;
   const pending = awaitingChannelId[userId];
@@ -133,12 +146,9 @@ bot.on("message", async (msg) => {
 
   let channelId: string | undefined;
 
-  // Handle forwarded message
   if (msg.forward_from_chat && msg.forward_from_chat.id) {
     channelId = msg.forward_from_chat.id.toString();
-  }
-  // Handle manual channel ID input
-  else if (msg.text) {
+  } else if (msg.text) {
     channelId = msg.text.trim();
     if (!channelId.startsWith("-100")) {
       channelId = `-100${channelId}`;
@@ -146,11 +156,7 @@ bot.on("message", async (msg) => {
   }
 
   if (!channelId) {
-    await bot.sendMessage(
-      userId,
-      "🚫 Please forward a message from the channel or provide a valid channel ID.\n\n" +
-      "Req: You need to make me an admin first (if you haven't yet) to check the admin status"
-    );
+    await bot.sendMessage(userId, "🚫 Please forward a message from the channel or provide a valid channel ID.");
     return;
   }
 
@@ -175,15 +181,15 @@ bot.on("message", async (msg) => {
   delete awaitingChannelId[userId];
 });
 
+// ==================== CHANNEL POST HANDLER (Plain Text Only) ====================
 bot.on("channel_post", async (msg) => {
   console.log("Entities:", msg.entities, "Caption Entities:", msg.caption_entities);
   const chatId = msg.chat.id;
   const messageId = msg.message_id;
-  if (msg.forward_from_chat || msg.forward_from || msg.forward_sender_name) {
-    return;
-  }
-  const signature = channelSignatures[chatId];
 
+  if (msg.forward_from_chat || msg.forward_from || msg.forward_sender_name) return;
+
+  const signature = channelSignatures[chatId];
   if (!signature) return;
 
   const adjustEntities = (
@@ -233,9 +239,7 @@ bot.on("channel_post", async (msg) => {
         const updatedText = `${originalText}\n\n${signature}`;
         const adjustedEntities = adjustEntities(msg.entities, originalText.length, `\n\n${signature}`.length);
 
-        await bot.sendMessage(chatId, updatedText, {
-          entities: adjustedEntities,
-        });
+        await bot.sendMessage(chatId, updatedText, { entities: adjustedEntities });
       } else if (msg.caption && msg.photo) {
         const originalCaption = msg.caption;
         const updatedCaption = `${originalCaption}\n\n${signature}`;
@@ -255,18 +259,7 @@ bot.on("channel_post", async (msg) => {
   }
 });
 
-Deno.serve({ port: 8000 }, async (req) => {
-  if (req.method === "POST" && new URL(req.url).pathname === WEBHOOK_PATH) {
-    try {
-      const update = await req.json();
-      bot.processUpdate(update);
-      return new Response("OK", { status: 200 });
-    } catch (error) {
-      console.error("Webhook error:", error);
-      return new Response("Error", { status: 500 });
-    }
-  }
-  return new Response("Not Found", { status: 404 });
-});
+// ==================== START SERVER ====================
+Deno.serve({ port: 8000, handler });
 
-console.log("Bot is running...");
+console.log("🚀 Bot is running...");
