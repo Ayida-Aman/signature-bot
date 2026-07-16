@@ -88,8 +88,10 @@ if (!IN_DEV_MODE) {
 bot.onText(/\/restore/, async (msg) => {
   const chatId = msg.chat.id;
   const username = msg.from?.username?.toLowerCase();
+  const OWNER_USERNAME = "Ayida_A_Shifa";
 
-  if (username !== "Ayida_A_Shifa") {
+  // username is lowercased above; always compare against a lowercased owner name
+  if (!username || username !== OWNER_USERNAME.toLowerCase()) {
     return bot.sendMessage(chatId, "🚫 Only the bot owner can restore data.");
   }
 
