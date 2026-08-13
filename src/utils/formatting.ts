@@ -5,7 +5,7 @@ import { ProcessedSignature } from "../types.ts";
  * Parses Markdown links [text](url) and formatting (**bold**, *bold*, _italic_, `code`) in signatures.
  */
 export function processSignatureLinks(signature: string): ProcessedSignature {
-  const tokenRegex = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|\*\*([^*]+)\*\*|\*([^*]+)\*|_([^_]+)_|`([^`]+)`/g;
+  const tokenRegex = /\[([^\]]+)\]\s*\((https?:\/\/[^\s)]+)\)|\*\*([^*]+)\*\*|\*([^*]+)\*|_([^_]+)_|`([^`]+)`/g;
 
   let displayText = "";
   let lastIndex = 0;
