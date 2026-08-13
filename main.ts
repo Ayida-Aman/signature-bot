@@ -11,12 +11,15 @@ try {
 
 const TELEGRAM_BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
 const WEBHOOK_SECRET_TOKEN = Deno.env.get("WEBHOOK_SECRET_TOKEN");
-const DENO_ENV = Deno.env.get("DENO_ENV") || "development";
-const IN_DEV_MODE = DENO_ENV === "development";
+
+// Automatically detect Deno Deploy cloud environment via built-in DENO_DEPLOYMENT_ID or APP_ENV
+const IS_DENO_DEPLOY = Boolean(Deno.env.get("DENO_DEPLOYMENT_ID"));
+const APP_ENV = Deno.env.get("APP_ENV") || (IS_DENO_DEPLOY ? "production" : "development");
+const IN_DEV_MODE = !IS_DENO_DEPLOY && APP_ENV === "development";
 
 console.log("TELEGRAM_BOT_TOKEN:", TELEGRAM_BOT_TOKEN ? "✅ Loaded" : "❌ Missing");
 console.log("WEBHOOK_SECRET_TOKEN:", WEBHOOK_SECRET_TOKEN ? "✅ Loaded" : "❌ Missing");
-console.log(`Environment Mode: 🚀 ${DENO_ENV}`);
+console.log(`Environment Mode: 🚀 ${APP_ENV} (Deno Deploy Cloud: ${IS_DENO_DEPLOY ? "Yes" : "No"})`);
 
 if (!TELEGRAM_BOT_TOKEN || !WEBHOOK_SECRET_TOKEN) {
   throw new Error("Missing environment variables");
@@ -232,6 +235,16 @@ if (!IN_DEV_MODE) {
     console.log("Webhook cleanup note:", e instanceof Error ? e.message : e);
   }
   console.log("🚀 Running in polling mode (development)");
+  bot.on("polling_error", (error) => {
+    if (error.message.includes("409 Conflict")) {
+      console.warn(
+        "⚠️ 409 Conflict: Another process/instance of this bot is polling Telegram.\n" +
+        "👉 Make sure DENO_ENV=production is set in environment variables on Deno Deploy (console.deno.com) and only one local dev terminal is running."
+      );
+    } else {
+      console.error("Polling error:", error.message);
+    }
+  });
 }
 
 // ==================== COMMANDS ====================
