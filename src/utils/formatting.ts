@@ -7,7 +7,7 @@ export interface SignatureValidationResult {
 }
 
 /**
- * Validates signature input format, checking for malformed hyperlink syntax.
+ * Validates signature input format, enforcing strict Markdown hyperlink syntax [text](url).
  */
 export function validateSignatureFormat(signature: string): SignatureValidationResult {
   const hasBrackets = /\[|\]/.test(signature);
@@ -16,21 +16,26 @@ export function validateSignatureFormat(signature: string): SignatureValidationR
     const { entities } = processSignatureLinks(signature);
     const validLinkCount = entities.filter((e) => e.type === "text_link").length;
 
-    // Check for malformed patterns like [text] without (http...) or [text](invalid_url)
-    const malformedPattern = /\[[^\]]*\](?!\s*\(https?:\/\/[^\s)]+\))/i;
+    // Check for malformed patterns:
+    // 1. Space or newline between ] and ( e.g. [text] (url) or [text]\n(url)
+    const hasSpaceOrNewlineBetween = /\[[^\]]+\]\s+\(/s.test(signature);
 
-    if (validLinkCount === 0 || malformedPattern.test(signature)) {
+    // 2. [text] without (http...) or invalid URL format
+    const malformedPattern = /\[[^\]]*\](?!\(https?:\/\/[^\s)]+\))/i;
+
+    if (validLinkCount === 0 || hasSpaceOrNewlineBetween || malformedPattern.test(signature)) {
       return {
         isValid: false,
         errorMessage:
           `❌ *Invalid Hyperlink Format*\n\n` +
-          `It looks like you attempted to add a hyperlink, but the syntax is invalid.\n\n` +
-          `📌 *Acceptable Hyperlink Format:*\n` +
-          `• \`[Link Text](https://your-url.com)\`\n` +
-          `• \`[Link Text] (https://your-url.com)\`\n\n` +
-          `💡 *Example:*\n` +
-          `\`Follow us: [LinkedIn](https://linkedin.com) | [Telegram](https://t.me/aydus_gallery)\`\n\n` +
-          `⚠️ *Note:* URLs must start with \`http://\` or \`https://\`.\n\n` +
+          `Hyperlinks must follow strict Markdown format with **no spaces or newlines** between \`]\` and \`(\`:\n` +
+          `\`[Link Text](https://your-url.com)\`\n\n` +
+          `💡 *Correct Example:*\n` +
+          `\`Hi us [LinkedIn](https://www.linkedin.com/in/bintaman/) || [Telegram](https://t.me/aydus_gallery)\`\n\n` +
+          `⚠️ *Common Mistakes:*\n` +
+          `• \`[linkedin] (https://...)\` ← *(Do not put spaces between ] and ()*\n` +
+          `• \`[linkedin]\n(https://...)\` ← *(Do not put newlines between ] and ()*\n` +
+          `• \`[linkedin](www.linkedin.com)\` ← *(URL must start with https:// or http://)*\n\n` +
           `_Please send your signature again with the correct format (or type /cancel to exit)._`,
       };
     }
@@ -41,9 +46,10 @@ export function validateSignatureFormat(signature: string): SignatureValidationR
 
 /**
  * Parses Markdown links [text](url) and formatting (**bold**, *bold*, _italic_, `code`) in signatures.
+ * Requires strict [text](url) format without spaces or newlines between ] and (.
  */
 export function processSignatureLinks(signature: string): ProcessedSignature {
-  const tokenRegex = /\[([^\]]+)\]\s*\((https?:\/\/[^\s)]+)\)|\*\*([^*]+)\*\*|\*([^*]+)\*|_([^_]+)_|`([^`]+)`/g;
+  const tokenRegex = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|\*\*([^*]+)\*\*|\*([^*]+)\*|_([^_]+)_|`([^`]+)`/g;
 
   let displayText = "";
   let lastIndex = 0;

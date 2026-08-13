@@ -36,7 +36,7 @@ export const startSignatureFlow = (userId: number, chatId: number, action: "set"
     userSessions[userId] = { action, step: "AWAITING_SIGNATURE" };
     bot.sendMessage(
       chatId,
-      `📌 *Step 1/2: Enter Signature*\n\nPlease reply with the signature text you'd like to use.\n\n💡 *Multiple Links & Formatting Supported!*\n*Examples:*\n• \`@aydus_journal\`\n• \`Made with 💙 by [Ayida](https://t.me/aydus_journal)\`\n• \`Follow us: [LinkedIn](https://...) | [Telegram](https://...) | [YouTube](https://...)\`\n\n_(Type /cancel anytime to exit)_`,
+      `📌 *Step 1/2: Enter Signature*\n\nPlease reply with the signature text you'd like to use.\n\n💡 *Multiple Links & Formatting Supported!*\n*Examples:*\n• \`@aydus_journal\`\n• \`Made with 💙 by [Ayida](https://t.me/aydus_journal)\`\n• \`Follow us: [LinkedIn](https://...) | [Telegram](https://...) | [YouTube](https://...)\`\n\n_(Type /cancel anytime to exit)_ \n\n **PS: You have to make me an admin on your channel** `,
       { parse_mode: "Markdown" }
     );
   }
@@ -204,13 +204,27 @@ Choose an option below to get started:`;
         return;
       }
 
-      const isAdmin = await isUserAdmin(channelId, userId);
+      const { isAdmin, reason } = await isUserAdmin(channelId, userId);
       if (!isAdmin) {
-        await bot.sendMessage(
-          chatId,
-          `🚫 *Permission Denied*\n\nYou must be an **Administrator or Creator** of *${channelDisplay}* to manage its signature.\n\nMake sure your account is an admin in that channel!`,
-          { parse_mode: "Markdown" }
-        );
+        if (reason === "BOT_NOT_ADMIN") {
+          await bot.sendMessage(
+            chatId,
+            `🤖 *Bot Administrator Rights Required*\n\n` +
+            `**SignatureBot** is not an administrator in *${channelDisplay}* yet.\n\n` +
+            `📌 *How to Fix:*\n` +
+            `1. Open your channel *${channelDisplay}*\n` +
+            `2. Go to **Settings** → **Administrators** → **Add Administrator**\n` +
+            `3. Add **SignatureBot** and enable **Post Messages** permission\n` +
+            `4. Try setting your signature again!`,
+            { parse_mode: "Markdown" }
+          );
+        } else {
+          await bot.sendMessage(
+            chatId,
+            `🚫 *Permission Denied*\n\nYou must be an **Administrator or Creator** of *${channelDisplay}* to set or manage its signature.\n\nPlease verify that your account is an admin in that channel.`,
+            { parse_mode: "Markdown" }
+          );
+        }
         delete userSessions[userId];
         return;
       }
