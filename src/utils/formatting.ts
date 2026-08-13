@@ -7,6 +7,13 @@ export interface SignatureValidationResult {
 }
 
 /**
+ * Escapes Telegram Markdown V1 special characters (*, _, `, \) in dynamic text strings.
+ */
+export function escapeMarkdown(text: string): string {
+  return text.replace(/[_*`\\]/g, "\\$&");
+}
+
+/**
  * Validates signature input format, enforcing strict Markdown hyperlink syntax [text](url).
  */
 export function validateSignatureFormat(signature: string): SignatureValidationResult {
@@ -33,8 +40,8 @@ export function validateSignatureFormat(signature: string): SignatureValidationR
           `💡 *Correct Example:*\n` +
           `\`Hi us [LinkedIn](https://www.linkedin.com/in/bintaman/) || [Telegram](https://t.me/aydus_gallery)\`\n\n` +
           `⚠️ *Common Mistakes:*\n` +
-          `• \`[linkedin] (https://...)\` ← *(Do not put spaces between ] and ()*\n` +
-          `• \`[linkedin]\n(https://...)\` ← *(Do not put newlines between ] and ()*\n` +
+          `• \`[linkedin] (https://...)\` ← *(Do not put spaces between ] and ())* \n` +
+          `• \`[linkedin]\n(https://...)\` ← *(Do not put newlines between ] and ())* \n` +
           `• \`[linkedin](www.linkedin.com)\` ← *(URL must start with https:// or http://)*\n\n` +
           `_Please send your signature again with the correct format (or type /cancel to exit)._`,
       };

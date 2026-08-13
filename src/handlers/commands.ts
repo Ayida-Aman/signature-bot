@@ -1,7 +1,7 @@
 import { bot, isUserAdmin } from "../bot.ts";
 import { saveSignature, removeSignature } from "../db.ts";
 import { UserSession } from "../types.ts";
-import { validateSignatureFormat } from "../utils/formatting.ts";
+import { validateSignatureFormat, escapeMarkdown } from "../utils/formatting.ts";
 
 export const userSessions: Record<number, UserSession> = {};
 
@@ -60,15 +60,16 @@ Use \`[Link Text](https://your-url.com)\` with **no spaces or newlines** between
 
 export const startSignatureFlow = (userId: number, chatId: number, action: "set" | "change", signatureInput?: string) => {
   if (signatureInput && signatureInput.trim()) {
-    const validation = validateSignatureFormat(signatureInput.trim());
+    const signatureText = signatureInput.trim();
+    const validation = validateSignatureFormat(signatureText);
     if (!validation.isValid) {
       bot.sendMessage(chatId, validation.errorMessage!, { parse_mode: "Markdown" });
       return;
     }
-    userSessions[userId] = { action, step: "AWAITING_CHANNEL", signature: signatureInput.trim() };
+    userSessions[userId] = { action, step: "AWAITING_CHANNEL", signature: signatureText };
     bot.sendMessage(
       chatId,
-      `✅ Signature: "*${signatureInput.trim()}*"\n\n📌 *Step 2/2: Select Channel*\n\nPlease **forward a post** from the target channel, or send the channel username/ID (e.g. \`@aydus_journal\` or \`24315194535\`).`,
+      `✅ Signature: "*${escapeMarkdown(signatureText)}*"\n\n📌 *Step 2/2: Select Channel*\n\nPlease **forward a post** from the target channel, or send the channel username/ID (e.g. \`@aydus_journal\` or \`24315194535\`).`,
       { parse_mode: "Markdown" }
     );
   } else {
@@ -202,7 +203,7 @@ Choose an option below to get started:`;
 
       await bot.sendMessage(
         chatId,
-        `✅ Signature set to:\n"${signature}"\n\n📌 *Step 2/2: Select Channel*\n\nNow please **forward a post** from the channel or type its username/ID (e.g. \`@aydus_journal\` or \`24315194535\`).`,
+        `✅ Signature set to:\n"${escapeMarkdown(signature)}"\n\n📌 *Step 2/2: Select Channel*\n\nNow please **forward a post** from the channel or type its username/ID (e.g. \`@aydus_journal\` or \`24315194535\`).`,
         { parse_mode: "Markdown" }
       );
       return;
@@ -244,7 +245,7 @@ Choose an option below to get started:`;
         console.error("Failed to resolve chat target:", err);
         await bot.sendMessage(
           chatId,
-          `❌ *Channel Not Found*\nCould not find channel \`${rawTarget}\`.\n\n📌 *Requirements Checklist:*\n1. Make sure **SignatureBot** is added to the channel as an **Administrator**.\n2. Verify the channel username (e.g. \`@aydus_journal\`) or forward a message directly from the channel.\n\n_Please try forwarding or typing the channel again, or send /cancel to stop._`,
+          `❌ *Channel Not Found*\nCould not find channel \`${escapeMarkdown(rawTarget)}\`.\n\n📌 *Requirements Checklist:*\n1. Make sure **SignatureBot** is added to the channel as an **Administrator**.\n2. Verify the channel username (e.g. \`@aydus_journal\`) or forward a message directly from the channel.\n\n_Please try forwarding or typing the channel again, or send /cancel to stop._`,
           { parse_mode: "Markdown" }
         );
         // Keep session active so user can retry without restarting from Step 1
@@ -257,9 +258,9 @@ Choose an option below to get started:`;
           await bot.sendMessage(
             chatId,
             `🤖 *Bot Administrator Rights Required*\n\n` +
-            `**SignatureBot** is not an administrator in *${channelDisplay}* yet.\n\n` +
+            `**SignatureBot** is not an administrator in *${escapeMarkdown(channelDisplay)}* yet.\n\n` +
             `📌 *How to Fix:*\n` +
-            `1. Open your channel *${channelDisplay}*\n` +
+            `1. Open your channel *${escapeMarkdown(channelDisplay)}*\n` +
             `2. Go to **Settings** → **Administrators** → **Add Administrator**\n` +
             `3. Add **SignatureBot** and enable **Post Messages** permission\n` +
             `4. Try setting your signature again!`,
@@ -268,7 +269,7 @@ Choose an option below to get started:`;
         } else {
           await bot.sendMessage(
             chatId,
-            `🚫 *Permission Denied*\n\nYou must be an **Administrator or Creator** of *${channelDisplay}* to set or manage its signature.\n\nPlease verify that your account is an admin in that channel.`,
+            `🚫 *Permission Denied*\n\nYou must be an **Administrator or Creator** of *${escapeMarkdown(channelDisplay)}* to set or manage its signature.\n\nPlease verify that your account is an admin in that channel.`,
             { parse_mode: "Markdown" }
           );
         }
@@ -280,14 +281,14 @@ Choose an option below to get started:`;
         await removeSignature(channelId);
         await bot.sendMessage(
           chatId,
-          `✅ Signature removed for channel *${channelDisplay}* (\`${channelId}\`).`,
+          `✅ Signature removed for channel *${escapeMarkdown(channelDisplay)}* (\`${channelId}\`).`,
           { parse_mode: "Markdown" }
         );
       } else if (session.signature) {
         await saveSignature(channelId, session.signature);
         await bot.sendMessage(
           chatId,
-          `🎉 *Success!* Signature ${session.action === "set" ? "saved" : "updated"} for channel *${channelDisplay}*!\n\n*Signature:*\n"${session.signature}"\n\nFrom now on, all new posts in *${channelDisplay}* will automatically append your signature.`,
+          `🎉 *Success!* Signature ${session.action === "set" ? "saved" : "updated"} for channel *${escapeMarkdown(channelDisplay)}*!\n\n*Signature:*\n"${escapeMarkdown(session.signature)}"\n\nFrom now on, all new posts in *${escapeMarkdown(channelDisplay)}* will automatically append your signature.`,
           { parse_mode: "Markdown" }
         );
       }
