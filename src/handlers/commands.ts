@@ -1,6 +1,7 @@
 import { bot, isUserAdmin } from "../bot.ts";
 import { saveSignature, removeSignature } from "../db.ts";
 import { UserSession } from "../types.ts";
+import { validateSignatureFormat } from "../utils/formatting.ts";
 
 export const userSessions: Record<number, UserSession> = {};
 
@@ -20,6 +21,11 @@ export const getMainMenuKeyboard = () => ({
 
 export const startSignatureFlow = (userId: number, chatId: number, action: "set" | "change", signatureInput?: string) => {
   if (signatureInput && signatureInput.trim()) {
+    const validation = validateSignatureFormat(signatureInput.trim());
+    if (!validation.isValid) {
+      bot.sendMessage(chatId, validation.errorMessage!, { parse_mode: "Markdown" });
+      return;
+    }
     userSessions[userId] = { action, step: "AWAITING_CHANNEL", signature: signatureInput.trim() };
     bot.sendMessage(
       chatId,
@@ -136,6 +142,14 @@ Choose an option below to get started:`;
         return;
       }
       const signature = msg.text.trim();
+
+      // Validate signature formatting
+      const validation = validateSignatureFormat(signature);
+      if (!validation.isValid) {
+        await bot.sendMessage(chatId, validation.errorMessage!, { parse_mode: "Markdown" });
+        return; // Keep session active so user can fix their signature input
+      }
+
       session.signature = signature;
       session.step = "AWAITING_CHANNEL";
 

@@ -1,6 +1,44 @@
 import TelegramBot from "telegram-bot-api";
 import { ProcessedSignature } from "../types.ts";
 
+export interface SignatureValidationResult {
+  isValid: boolean;
+  errorMessage?: string;
+}
+
+/**
+ * Validates signature input format, checking for malformed hyperlink syntax.
+ */
+export function validateSignatureFormat(signature: string): SignatureValidationResult {
+  const hasBrackets = /\[|\]/.test(signature);
+
+  if (hasBrackets) {
+    const { entities } = processSignatureLinks(signature);
+    const validLinkCount = entities.filter((e) => e.type === "text_link").length;
+
+    // Check for malformed patterns like [text] without (http...) or [text](invalid_url)
+    const malformedPattern = /\[[^\]]*\](?!\s*\(https?:\/\/[^\s)]+\))/i;
+
+    if (validLinkCount === 0 || malformedPattern.test(signature)) {
+      return {
+        isValid: false,
+        errorMessage:
+          `❌ *Invalid Hyperlink Format*\n\n` +
+          `It looks like you attempted to add a hyperlink, but the syntax is invalid.\n\n` +
+          `📌 *Acceptable Hyperlink Format:*\n` +
+          `• \`[Link Text](https://your-url.com)\`\n` +
+          `• \`[Link Text] (https://your-url.com)\`\n\n` +
+          `💡 *Example:*\n` +
+          `\`Follow us: [LinkedIn](https://linkedin.com) | [Telegram](https://t.me/aydus_gallery)\`\n\n` +
+          `⚠️ *Note:* URLs must start with \`http://\` or \`https://\`.\n\n` +
+          `_Please send your signature again with the correct format (or type /cancel to exit)._`,
+      };
+    }
+  }
+
+  return { isValid: true };
+}
+
 /**
  * Parses Markdown links [text](url) and formatting (**bold**, *bold*, _italic_, `code`) in signatures.
  */
