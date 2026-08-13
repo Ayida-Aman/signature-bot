@@ -1,24 +1,22 @@
-name: Deploy to Deno Deploy
+name: CI & Type Check
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
+
 jobs:
-  deploy:
-    name: Deploy
+  check:
+    name: Deno Type Check
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-      contents: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      - name: Deploy to Deno Deploy
-        uses: denoland/deployctl@v1
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
         with:
-          project: telegram-signature-bot
-          entrypoint: main.ts
-          env-vars: |
-            TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}
-            WEBHOOK_SECRET_TOKEN=${{ secrets.WEBHOOK_SECRET_TOKEN }}
-            DENO_ENV=production
-            DENO_PROJECT_DOMAIN=telegram-signature-bot.deno.dev
+          deno-version: v2.x
+
+      - name: Run Type Check
+        run: deno check main.ts
