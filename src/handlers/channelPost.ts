@@ -3,24 +3,7 @@ import TelegramBot from "telegram-bot-api";
 import { bot } from "../bot.ts";
 import { channelSignatures } from "../db.ts";
 import { combineMessageWithSignature } from "../utils/formatting.ts";
-
-/**
- * Wraps Telegram API operations to handle HTTP 429 Too Many Requests rate limits automatically.
- */
-async function withAutoRetry<T>(operation: () => Promise<T>): Promise<T> {
-  try {
-    return await operation();
-  } catch (error: any) {
-    const is429 = error?.response?.body?.error_code === 429 || error?.message?.includes("429");
-    if (is429) {
-      const retryAfter = error?.response?.body?.parameters?.retry_after || 1;
-      console.warn(`⚠️ 429 Rate Limited by Telegram. Retrying after ${retryAfter}s...`);
-      await new Promise((resolve) => setTimeout(resolve, (retryAfter + 0.5) * 1000));
-      return await operation();
-    }
-    throw error;
-  }
-}
+import { withAutoRetry } from "../utils/telegramHelpers.ts";
 
 export function setupChannelPostHandler(): void {
   bot.on("channel_post", async (msg) => {

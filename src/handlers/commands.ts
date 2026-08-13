@@ -1,6 +1,7 @@
 import { bot, isUserAdmin } from "../bot.ts";
 import { saveSignature, removeSignature, getSession, setSession, deleteSession } from "../db.ts";
 import { validateSignatureFormat, escapeMarkdown } from "../utils/formatting.ts";
+import { withAutoRetry } from "../utils/telegramHelpers.ts";
 
 export const getMainMenuKeyboard = () => ({
   reply_markup: {
@@ -52,7 +53,9 @@ Use \`[Link Text](https://your-url.com)\` with **no spaces or newlines** between
 • **Remove Signature:** Tap **❌ Remove Signature** or send \`/remove_signature\`
 • **Cancel Setup:** Send \`/cancel\` anytime to exit`;
 
-  await bot.sendMessage(chatId, guideText, { parse_mode: "Markdown", ...getMainMenuKeyboard() });
+  await withAutoRetry(() =>
+    bot.sendMessage(chatId, guideText, { parse_mode: "Markdown", ...getMainMenuKeyboard() })
+  );
 };
 
 export const startSignatureFlow = async (userId: number, chatId: number, action: "set" | "change", signatureInput?: string) => {
@@ -60,31 +63,37 @@ export const startSignatureFlow = async (userId: number, chatId: number, action:
     const signatureText = signatureInput.trim();
     const validation = validateSignatureFormat(signatureText);
     if (!validation.isValid) {
-      await bot.sendMessage(chatId, validation.errorMessage!, { parse_mode: "Markdown" });
+      await withAutoRetry(() => bot.sendMessage(chatId, validation.errorMessage!, { parse_mode: "Markdown" }));
       return;
     }
     await setSession(userId, { action, step: "AWAITING_CHANNEL", signature: signatureText });
-    await bot.sendMessage(
-      chatId,
-      `✅ Signature: "*${escapeMarkdown(signatureText)}*"\n\n📌 *Step 2/2: Select Channel*\n\nPlease **forward a post** from the target channel, or send the channel username/ID (e.g. \`@aydus_journal\` or \`24315194535\`).`,
-      { parse_mode: "Markdown" }
+    await withAutoRetry(() =>
+      bot.sendMessage(
+        chatId,
+        `✅ Signature: "*${escapeMarkdown(signatureText)}*"\n\n📌 *Step 2/2: Select Channel*\n\nPlease **forward a post** from the target channel, or send the channel username/ID (e.g. \`@aydus_journal\` or \`24315194535\`).`,
+        { parse_mode: "Markdown" }
+      )
     );
   } else {
     await setSession(userId, { action, step: "AWAITING_SIGNATURE" });
-    await bot.sendMessage(
-      chatId,
-      `📌 *Step 1/2: Enter Signature*\n\nPlease reply with the signature text you'd like to use.\n\n💡 *Multiple Links & Formatting Supported!*\n*Examples:*\n• \`@aydus_journal\`\n• \`Made with 💙 by [Ayida](https://t.me/aydus_journal)\`\n• \`Follow us: [LinkedIn](https://...) | [Telegram](https://...)\`\n\n_(Type /cancel anytime to exit)_\n\n⚠️ *Note: Make sure this bot is added as an administrator to your channel!*`,
-      { parse_mode: "Markdown" }
+    await withAutoRetry(() =>
+      bot.sendMessage(
+        chatId,
+        `📌 *Step 1/2: Enter Signature*\n\nPlease reply with the signature text you'd like to use.\n\n💡 *Multiple Links & Formatting Supported!*\n*Examples:*\n• \`@aydus_journal\`\n• \`Made with 💙 by [Ayida](https://t.me/aydus_journal)\`\n• \`Follow us: [LinkedIn](https://...) | [Telegram](https://...)\`\n\n_(Type /cancel anytime to exit)_\n\n⚠️ *Note: Make sure this bot is added as an administrator to your channel!*`,
+        { parse_mode: "Markdown" }
+      )
     );
   }
 };
 
 export const startRemoveFlow = async (userId: number, chatId: number) => {
   await setSession(userId, { action: "remove", step: "AWAITING_CHANNEL" });
-  await bot.sendMessage(
-    chatId,
-    `❌ *Remove Signature*\n\nPlease **forward a post** from the channel, or send the channel username/ID (e.g. \`@aydus_journal\` or \`24315194535\`).\n\n_(Type /cancel anytime to exit)_`,
-    { parse_mode: "Markdown" }
+  await withAutoRetry(() =>
+    bot.sendMessage(
+      chatId,
+      `❌ *Remove Signature*\n\nPlease **forward a post** from the channel, or send the channel username/ID (e.g. \`@aydus_journal\` or \`24315194535\`).\n\n_(Type /cancel anytime to exit)_`,
+      { parse_mode: "Markdown" }
+    )
   );
 };
 
@@ -97,7 +106,9 @@ export function setupCommandHandlers(): void {
 I automatically append custom signatures (with multiple hyperlinks support!) to all posts in your channels.
 
 Choose an option below to get started:`;
-    await bot.sendMessage(chatId, welcomeMessage, { parse_mode: "Markdown", ...getMainMenuKeyboard() });
+    await withAutoRetry(() =>
+      bot.sendMessage(chatId, welcomeMessage, { parse_mode: "Markdown", ...getMainMenuKeyboard() })
+    );
   });
 
   // How To Use Command
@@ -109,7 +120,7 @@ Choose an option below to get started:`;
   bot.onText(/\/cancel/, async (msg) => {
     const userId = msg.from?.id || msg.chat.id;
     await deleteSession(userId);
-    await bot.sendMessage(msg.chat.id, "❌ Action cancelled.", getMainMenuKeyboard());
+    await withAutoRetry(() => bot.sendMessage(msg.chat.id, "❌ Action cancelled.", getMainMenuKeyboard()));
   });
 
   // Set / Change / Remove Signature Commands
@@ -135,7 +146,7 @@ Choose an option below to get started:`;
     if (!chatId) return;
 
     try {
-      await bot.answerCallbackQuery(query.id);
+      await withAutoRetry(() => bot.answerCallbackQuery(query.id));
     } catch {
       // Ignore callback query answer timeout
     }
@@ -167,10 +178,12 @@ Choose an option below to get started:`;
     // If user sends a message outside an active session, give them guidance instead of ignoring them
     if (!session) {
       if (msg.chat.type === "private") {
-        await bot.sendMessage(
-          chatId,
-          `👋 *Hi there!*\n\nTo set or manage channel signatures, please choose an option below or send /start:`,
-          { parse_mode: "Markdown", ...getMainMenuKeyboard() }
+        await withAutoRetry(() =>
+          bot.sendMessage(
+            chatId,
+            `👋 *Hi there!*\n\nTo set or manage channel signatures, please choose an option below or send /start:`,
+            { parse_mode: "Markdown", ...getMainMenuKeyboard() }
+          )
         );
       }
       return;
@@ -179,10 +192,12 @@ Choose an option below to get started:`;
     // Step 1: User provides the signature text
     if (session.step === "AWAITING_SIGNATURE") {
       if (!msg.text) {
-        await bot.sendMessage(
-          chatId,
-          `❌ *Text Required:* Please send your signature as a text message.\n\n*Example:* \`Follow us: [LinkedIn](https://...) | [Telegram](https://...)\``,
-          { parse_mode: "Markdown" }
+        await withAutoRetry(() =>
+          bot.sendMessage(
+            chatId,
+            `❌ *Text Required:* Please send your signature as a text message.\n\n*Example:* \`Follow us: [LinkedIn](https://...) | [Telegram](https://...)\``,
+            { parse_mode: "Markdown" }
+          )
         );
         return;
       }
@@ -191,7 +206,7 @@ Choose an option below to get started:`;
       // Validate signature formatting
       const validation = validateSignatureFormat(signature);
       if (!validation.isValid) {
-        await bot.sendMessage(chatId, validation.errorMessage!, { parse_mode: "Markdown" });
+        await withAutoRetry(() => bot.sendMessage(chatId, validation.errorMessage!, { parse_mode: "Markdown" }));
         return; // Keep session active so user can fix their signature input
       }
 
@@ -199,10 +214,12 @@ Choose an option below to get started:`;
       session.step = "AWAITING_CHANNEL";
       await setSession(userId, session);
 
-      await bot.sendMessage(
-        chatId,
-        `✅ Signature set to:\n"${escapeMarkdown(signature)}"\n\n📌 *Step 2/2: Select Channel*\n\nNow please **forward a post** from the channel or type its username/ID (e.g. \`@aydus_journal\` or \`24315194535\`).`,
-        { parse_mode: "Markdown" }
+      await withAutoRetry(() =>
+        bot.sendMessage(
+          chatId,
+          `✅ Signature set to:\n"${escapeMarkdown(signature)}"\n\n📌 *Step 2/2: Select Channel*\n\nNow please **forward a post** from the channel or type its username/ID (e.g. \`@aydus_journal\` or \`24315194535\`).`,
+          { parse_mode: "Markdown" }
+        )
       );
       return;
     }
@@ -225,10 +242,12 @@ Choose an option below to get started:`;
       }
 
       if (!rawTarget) {
-        await bot.sendMessage(
-          chatId,
-          "🚫 *Invalid Channel Format:* Please forward a message directly from the channel or provide a valid username (e.g. `@aydus_journal`) or channel ID.",
-          { parse_mode: "Markdown" }
+        await withAutoRetry(() =>
+          bot.sendMessage(
+            chatId,
+            "🚫 *Invalid Channel Format:* Please forward a message directly from the channel or provide a valid username (e.g. `@aydus_journal`) or channel ID.",
+            { parse_mode: "Markdown" }
+          )
         );
         return;
       }
@@ -236,15 +255,17 @@ Choose an option below to get started:`;
       let channelId: string;
       let channelDisplay = rawTarget;
       try {
-        const chat = await bot.getChat(rawTarget);
+        const chat = await withAutoRetry(() => bot.getChat(rawTarget!));
         channelId = chat.id.toString();
         channelDisplay = chat.title ? chat.title : rawTarget;
       } catch (err) {
         console.error("Failed to resolve chat target:", err);
-        await bot.sendMessage(
-          chatId,
-          `❌ *Channel Not Found*\nCould not find channel \`${escapeMarkdown(rawTarget)}\`.\n\n📌 *Requirements Checklist:*\n1. Make sure **SignatureBot** is added to the channel as an **Administrator**.\n2. Verify the channel username (e.g. \`@aydus_journal\`) or forward a message directly from the channel.\n\n_Please try forwarding or typing the channel again, or send /cancel to stop._`,
-          { parse_mode: "Markdown" }
+        await withAutoRetry(() =>
+          bot.sendMessage(
+            chatId,
+            `❌ *Channel Not Found*\nCould not find channel \`${escapeMarkdown(rawTarget!)}\`.\n\n📌 *Requirements Checklist:*\n1. Make sure **SignatureBot** is added to the channel as an **Administrator**.\n2. Verify the channel username (e.g. \`@aydus_journal\`) or forward a message directly from the channel.\n\n_Please try forwarding or typing the channel again, or send /cancel to stop._`,
+            { parse_mode: "Markdown" }
+          )
         );
         // Keep session active so user can retry without restarting from Step 1
         return;
@@ -253,22 +274,26 @@ Choose an option below to get started:`;
       const { isAdmin, reason } = await isUserAdmin(channelId, userId);
       if (!isAdmin) {
         if (reason === "BOT_NOT_ADMIN") {
-          await bot.sendMessage(
-            chatId,
-            `🤖 *Bot Administrator Rights Required*\n\n` +
-            `**SignatureBot** is not an administrator in *${escapeMarkdown(channelDisplay)}* yet.\n\n` +
-            `📌 *How to Fix:*\n` +
-            `1. Open your channel *${escapeMarkdown(channelDisplay)}*\n` +
-            `2. Go to **Settings** → **Administrators** → **Add Administrator**\n` +
-            `3. Add **SignatureBot** and enable **Post Messages** permission\n` +
-            `4. Try setting your signature again!`,
-            { parse_mode: "Markdown" }
+          await withAutoRetry(() =>
+            bot.sendMessage(
+              chatId,
+              `🤖 *Bot Administrator Rights Required*\n\n` +
+              `**SignatureBot** is not an administrator in *${escapeMarkdown(channelDisplay)}* yet.\n\n` +
+              `📌 *How to Fix:*\n` +
+              `1. Open your channel *${escapeMarkdown(channelDisplay)}*\n` +
+              `2. Go to **Settings** → **Administrators** → **Add Administrator**\n` +
+              `3. Add **SignatureBot** and enable **Post Messages** permission\n` +
+              `4. Try setting your signature again!`,
+              { parse_mode: "Markdown" }
+            )
           );
         } else {
-          await bot.sendMessage(
-            chatId,
-            `🚫 *Permission Denied*\n\nYou must be an **Administrator or Creator** of *${escapeMarkdown(channelDisplay)}* to set or manage its signature.\n\nPlease verify that your account is an admin in that channel.`,
-            { parse_mode: "Markdown" }
+          await withAutoRetry(() =>
+            bot.sendMessage(
+              chatId,
+              `🚫 *Permission Denied*\n\nYou must be an **Administrator or Creator** of *${escapeMarkdown(channelDisplay)}* to set or manage its signature.\n\nPlease verify that your account is an admin in that channel.`,
+              { parse_mode: "Markdown" }
+            )
           );
         }
         await deleteSession(userId);
@@ -277,17 +302,22 @@ Choose an option below to get started:`;
 
       if (session.action === "remove") {
         await removeSignature(channelId);
-        await bot.sendMessage(
-          chatId,
-          `✅ Signature removed for channel *${escapeMarkdown(channelDisplay)}* (\`${channelId}\`).`,
-          { parse_mode: "Markdown" }
+        await withAutoRetry(() =>
+          bot.sendMessage(
+            chatId,
+            `✅ Signature removed for channel *${escapeMarkdown(channelDisplay)}* (\`${channelId}\`).`,
+            { parse_mode: "Markdown" }
+          )
         );
       } else if (session.signature) {
-        await saveSignature(channelId, session.signature);
-        await bot.sendMessage(
-          chatId,
-          `🎉 *Success!* Signature ${session.action === "set" ? "saved" : "updated"} for channel *${escapeMarkdown(channelDisplay)}*!\n\n*Signature:*\n"${escapeMarkdown(session.signature)}"\n\nFrom now on, all new posts in *${escapeMarkdown(channelDisplay)}* will automatically append your signature.`,
-          { parse_mode: "Markdown" }
+        const sig = session.signature;
+        await saveSignature(channelId, sig);
+        await withAutoRetry(() =>
+          bot.sendMessage(
+            chatId,
+            `🎉 *Success!* Signature ${session.action === "set" ? "saved" : "updated"} for channel *${escapeMarkdown(channelDisplay)}*!\n\n*Signature:*\n"${escapeMarkdown(sig)}"\n\nFrom now on, all new posts in *${escapeMarkdown(channelDisplay)}* will automatically append your signature.`,
+            { parse_mode: "Markdown" }
+          )
         );
       }
 

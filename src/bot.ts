@@ -1,6 +1,7 @@
 // @deno-types="npm:@types/node-telegram-bot-api"
 import TelegramBot from "telegram-bot-api";
 import { TELEGRAM_BOT_TOKEN, IN_DEV_MODE } from "./config.ts";
+import { withAutoRetry } from "./utils/telegramHelpers.ts";
 
 export const bot = new TelegramBot(TELEGRAM_BOT_TOKEN!, { polling: IN_DEV_MODE });
 
@@ -11,11 +12,11 @@ export interface AdminCheckResult {
 
 /**
  * Checks if a user is an administrator or owner of a given channel,
- * and distinguishes whether permission issues are due to user rights or bot rights.
+ * wrapped with automatic retry for 429 rate limits.
  */
 export async function isUserAdmin(channelId: string, userId: number): Promise<AdminCheckResult> {
   try {
-    const member = await bot.getChatMember(channelId, userId);
+    const member = await withAutoRetry(() => bot.getChatMember(channelId, userId));
     const isAdmin = member.status === "administrator" || member.status === "creator";
     return {
       isAdmin,
