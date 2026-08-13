@@ -14,10 +14,49 @@ export const getMainMenuKeyboard = () => ({
       ],
       [
         { text: "❌ Remove Signature", callback_data: "cmd_remove" },
+        { text: "❓ How To Use", callback_data: "cmd_howto" },
       ],
     ],
   },
 });
+
+export const sendHowToGuide = (chatId: number) => {
+  const guideText = `📖 *How to Use SignatureBot*
+
+SignatureBot automatically appends custom signatures (with clickable links & formatting) to every new post in your Telegram channels!
+
+---
+📌 *Step 1: Add Bot to Your Channel*
+1. Open your Telegram channel settings.
+2. Go to **Administrators** → **Add Administrator**.
+3. Search for this bot and grant **Post Messages** permission.
+
+---
+📌 *Step 2: Set Your Signature*
+1. Tap **📌 Set Signature** or send \`/set_signature\`.
+2. Type and send your signature text.
+
+🔗 *Hyperlink Format (Strict Markdown):*
+Use \`[Link Text](https://your-url.com)\` with **no spaces or newlines** between \`]\` and \`(\`.
+
+💡 *Examples:*
+• \`@aydus_journal\`
+• \`Made with 💙 by [Ayida](https://t.me/aydus_journal)\`
+• \`Hi us [LinkedIn](https://www.linkedin.com/in/bintaman/) || [Telegram](https://t.me/aydus_gallery)\`
+
+---
+📌 *Step 3: Select Your Channel*
+1. **Forward any post** from your channel to this chat, OR send your channel username (e.g. \`@aydus_journal\`).
+2. Done! All future posts in your channel will automatically append your signature.
+
+---
+⚙️ *Management Commands:*
+• **Change Signature:** Tap **🔁 Change Signature** or send \`/change_signature\`
+• **Remove Signature:** Tap **❌ Remove Signature** or send \`/remove_signature\`
+• **Cancel Setup:** Send \`/cancel\` anytime to exit`;
+
+  bot.sendMessage(chatId, guideText, { parse_mode: "Markdown", ...getMainMenuKeyboard() });
+};
 
 export const startSignatureFlow = (userId: number, chatId: number, action: "set" | "change", signatureInput?: string) => {
   if (signatureInput && signatureInput.trim()) {
@@ -36,7 +75,7 @@ export const startSignatureFlow = (userId: number, chatId: number, action: "set"
     userSessions[userId] = { action, step: "AWAITING_SIGNATURE" };
     bot.sendMessage(
       chatId,
-      `📌 *Step 1/2: Enter Signature*\n\nPlease reply with the signature text you'd like to use.\n\n💡 *Multiple Links & Formatting Supported!*\n*Examples:*\n• \`@aydus_journal\`\n• \`Made with 💙 by [Ayida](https://t.me/aydus_journal)\`\n• \`Follow us: [LinkedIn](https://...) | [Telegram](https://...) | [YouTube](https://...)\`\n\n_(Type /cancel anytime to exit)_ \n\n **PS: You have to make me an admin on your channel** `,
+      `📌 *Step 1/2: Enter Signature*\n\nPlease reply with the signature text you'd like to use.\n\n💡 *Multiple Links & Formatting Supported!*\n*Examples:*\n• \`@aydus_journal\`\n• \`Made with 💙 by [Ayida](https://t.me/aydus_journal)\`\n• \`Follow us: [LinkedIn](https://...) | [Telegram](https://...)\`\n\n_(Type /cancel anytime to exit)_\n\n⚠️ *Note: Make sure this bot is added as an administrator to your channel!*`,
       { parse_mode: "Markdown" }
     );
   }
@@ -61,6 +100,11 @@ I automatically append custom signatures (with multiple hyperlinks support!) to 
 
 Choose an option below to get started:`;
     bot.sendMessage(chatId, welcomeMessage, { parse_mode: "Markdown", ...getMainMenuKeyboard() });
+  });
+
+  // How To Use Command
+  bot.onText(/\/howto|\/help/, (msg) => {
+    sendHowToGuide(msg.chat.id);
   });
 
   // Cancel Command
@@ -107,6 +151,9 @@ Choose an option below to get started:`;
         break;
       case "cmd_remove":
         startRemoveFlow(userId, chatId);
+        break;
+      case "cmd_howto":
+        sendHowToGuide(chatId);
         break;
     }
   });
