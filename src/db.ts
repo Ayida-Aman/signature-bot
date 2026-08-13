@@ -1,6 +1,8 @@
 import { bot } from "./bot.ts";
+import { UserSession } from "./types.ts";
 
 export const channelSignatures: Record<string, string> = {};
+export const userSessions: Record<number, UserSession> = {};
 
 const kv = await Deno.openKv();
 
@@ -52,4 +54,36 @@ export async function removeSignature(channelId: string): Promise<void> {
   await kv.delete(["signatures", channelId]);
   delete channelSignatures[channelId];
   console.log(`Removed signature for channel ${channelId}`);
+}
+
+/**
+ * Gets active user session from Deno KV (or in-memory cache).
+ */
+export async function getSession(userId: number): Promise<UserSession | undefined> {
+  if (userSessions[userId]) {
+    return userSessions[userId];
+  }
+  const entry = await kv.get<UserSession>(["sessions", userId]);
+  if (entry.value) {
+    userSessions[userId] = entry.value;
+    return entry.value;
+  }
+  return undefined;
+}
+
+/**
+ * Saves active user session in Deno KV with a 15-minute expiration timer.
+ */
+export async function setSession(userId: number, session: UserSession): Promise<void> {
+  userSessions[userId] = session;
+  // 15 minute expiration for active sessions in KV
+  await kv.set(["sessions", userId], session, { expireIn: 15 * 60 * 1000 });
+}
+
+/**
+ * Deletes user session from Deno KV and memory.
+ */
+export async function deleteSession(userId: number): Promise<void> {
+  delete userSessions[userId];
+  await kv.delete(["sessions", userId]);
 }

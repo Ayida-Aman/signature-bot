@@ -1,9 +1,6 @@
 import { bot, isUserAdmin } from "../bot.ts";
-import { saveSignature, removeSignature } from "../db.ts";
-import { UserSession } from "../types.ts";
+import { saveSignature, removeSignature, getSession, setSession, deleteSession } from "../db.ts";
 import { validateSignatureFormat, escapeMarkdown } from "../utils/formatting.ts";
-
-export const userSessions: Record<number, UserSession> = {};
 
 export const getMainMenuKeyboard = () => ({
   reply_markup: {
@@ -20,7 +17,7 @@ export const getMainMenuKeyboard = () => ({
   },
 });
 
-export const sendHowToGuide = (chatId: number) => {
+export const sendHowToGuide = async (chatId: number) => {
   const guideText = `📖 *How to Use SignatureBot*
 
 SignatureBot automatically appends custom signatures (with clickable links & formatting) to every new post in your Telegram channels!
@@ -55,26 +52,26 @@ Use \`[Link Text](https://your-url.com)\` with **no spaces or newlines** between
 • **Remove Signature:** Tap **❌ Remove Signature** or send \`/remove_signature\`
 • **Cancel Setup:** Send \`/cancel\` anytime to exit`;
 
-  bot.sendMessage(chatId, guideText, { parse_mode: "Markdown", ...getMainMenuKeyboard() });
+  await bot.sendMessage(chatId, guideText, { parse_mode: "Markdown", ...getMainMenuKeyboard() });
 };
 
-export const startSignatureFlow = (userId: number, chatId: number, action: "set" | "change", signatureInput?: string) => {
+export const startSignatureFlow = async (userId: number, chatId: number, action: "set" | "change", signatureInput?: string) => {
   if (signatureInput && signatureInput.trim()) {
     const signatureText = signatureInput.trim();
     const validation = validateSignatureFormat(signatureText);
     if (!validation.isValid) {
-      bot.sendMessage(chatId, validation.errorMessage!, { parse_mode: "Markdown" });
+      await bot.sendMessage(chatId, validation.errorMessage!, { parse_mode: "Markdown" });
       return;
     }
-    userSessions[userId] = { action, step: "AWAITING_CHANNEL", signature: signatureText };
-    bot.sendMessage(
+    await setSession(userId, { action, step: "AWAITING_CHANNEL", signature: signatureText });
+    await bot.sendMessage(
       chatId,
       `✅ Signature: "*${escapeMarkdown(signatureText)}*"\n\n📌 *Step 2/2: Select Channel*\n\nPlease **forward a post** from the target channel, or send the channel username/ID (e.g. \`@aydus_journal\` or \`24315194535\`).`,
       { parse_mode: "Markdown" }
     );
   } else {
-    userSessions[userId] = { action, step: "AWAITING_SIGNATURE" };
-    bot.sendMessage(
+    await setSession(userId, { action, step: "AWAITING_SIGNATURE" });
+    await bot.sendMessage(
       chatId,
       `📌 *Step 1/2: Enter Signature*\n\nPlease reply with the signature text you'd like to use.\n\n💡 *Multiple Links & Formatting Supported!*\n*Examples:*\n• \`@aydus_journal\`\n• \`Made with 💙 by [Ayida](https://t.me/aydus_journal)\`\n• \`Follow us: [LinkedIn](https://...) | [Telegram](https://...)\`\n\n_(Type /cancel anytime to exit)_\n\n⚠️ *Note: Make sure this bot is added as an administrator to your channel!*`,
       { parse_mode: "Markdown" }
@@ -82,9 +79,9 @@ export const startSignatureFlow = (userId: number, chatId: number, action: "set"
   }
 };
 
-export const startRemoveFlow = (userId: number, chatId: number) => {
-  userSessions[userId] = { action: "remove", step: "AWAITING_CHANNEL" };
-  bot.sendMessage(
+export const startRemoveFlow = async (userId: number, chatId: number) => {
+  await setSession(userId, { action: "remove", step: "AWAITING_CHANNEL" });
+  await bot.sendMessage(
     chatId,
     `❌ *Remove Signature*\n\nPlease **forward a post** from the channel, or send the channel username/ID (e.g. \`@aydus_journal\` or \`24315194535\`).\n\n_(Type /cancel anytime to exit)_`,
     { parse_mode: "Markdown" }
@@ -93,42 +90,42 @@ export const startRemoveFlow = (userId: number, chatId: number) => {
 
 export function setupCommandHandlers(): void {
   // Start & Menu Commands
-  bot.onText(/\/start|\/menu/, (msg) => {
+  bot.onText(/\/start|\/menu/, async (msg) => {
     const chatId = msg.chat.id;
     const welcomeMessage = `👋 *Welcome to SignatureBot!*
 
 I automatically append custom signatures (with multiple hyperlinks support!) to all posts in your channels.
 
 Choose an option below to get started:`;
-    bot.sendMessage(chatId, welcomeMessage, { parse_mode: "Markdown", ...getMainMenuKeyboard() });
+    await bot.sendMessage(chatId, welcomeMessage, { parse_mode: "Markdown", ...getMainMenuKeyboard() });
   });
 
   // How To Use Command
-  bot.onText(/\/howto|\/help/, (msg) => {
-    sendHowToGuide(msg.chat.id);
+  bot.onText(/\/howto|\/help/, async (msg) => {
+    await sendHowToGuide(msg.chat.id);
   });
 
   // Cancel Command
-  bot.onText(/\/cancel/, (msg) => {
+  bot.onText(/\/cancel/, async (msg) => {
     const userId = msg.from?.id || msg.chat.id;
-    delete userSessions[userId];
-    bot.sendMessage(msg.chat.id, "❌ Action cancelled.", getMainMenuKeyboard());
+    await deleteSession(userId);
+    await bot.sendMessage(msg.chat.id, "❌ Action cancelled.", getMainMenuKeyboard());
   });
 
   // Set / Change / Remove Signature Commands
-  bot.onText(/\/set_signature(?:\s+(.+))?/, (msg, match) => {
+  bot.onText(/\/set_signature(?:\s+(.+))?/, async (msg, match) => {
     const userId = msg.from?.id || msg.chat.id;
-    startSignatureFlow(userId, msg.chat.id, "set", match?.[1]);
+    await startSignatureFlow(userId, msg.chat.id, "set", match?.[1]);
   });
 
-  bot.onText(/\/change_signature(?:\s+(.+))?/, (msg, match) => {
+  bot.onText(/\/change_signature(?:\s+(.+))?/, async (msg, match) => {
     const userId = msg.from?.id || msg.chat.id;
-    startSignatureFlow(userId, msg.chat.id, "change", match?.[1]);
+    await startSignatureFlow(userId, msg.chat.id, "change", match?.[1]);
   });
 
-  bot.onText(/\/remove_signature/, (msg) => {
+  bot.onText(/\/remove_signature/, async (msg) => {
     const userId = msg.from?.id || msg.chat.id;
-    startRemoveFlow(userId, msg.chat.id);
+    await startRemoveFlow(userId, msg.chat.id);
   });
 
   // Inline Button Callbacks
@@ -145,16 +142,16 @@ Choose an option below to get started:`;
 
     switch (query.data) {
       case "cmd_set":
-        startSignatureFlow(userId, chatId, "set");
+        await startSignatureFlow(userId, chatId, "set");
         break;
       case "cmd_change":
-        startSignatureFlow(userId, chatId, "change");
+        await startSignatureFlow(userId, chatId, "change");
         break;
       case "cmd_remove":
-        startRemoveFlow(userId, chatId);
+        await startRemoveFlow(userId, chatId);
         break;
       case "cmd_howto":
-        sendHowToGuide(chatId);
+        await sendHowToGuide(chatId);
         break;
     }
   });
@@ -165,7 +162,7 @@ Choose an option below to get started:`;
 
     const userId = msg.from?.id || msg.chat.id;
     const chatId = msg.chat.id;
-    const session = userSessions[userId];
+    const session = await getSession(userId);
 
     // If user sends a message outside an active session, give them guidance instead of ignoring them
     if (!session) {
@@ -200,6 +197,7 @@ Choose an option below to get started:`;
 
       session.signature = signature;
       session.step = "AWAITING_CHANNEL";
+      await setSession(userId, session);
 
       await bot.sendMessage(
         chatId,
@@ -273,7 +271,7 @@ Choose an option below to get started:`;
             { parse_mode: "Markdown" }
           );
         }
-        delete userSessions[userId];
+        await deleteSession(userId);
         return;
       }
 
@@ -293,7 +291,7 @@ Choose an option below to get started:`;
         );
       }
 
-      delete userSessions[userId];
+      await deleteSession(userId);
     }
   });
 }
